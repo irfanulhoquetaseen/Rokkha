@@ -87,7 +87,7 @@ export function parseFinderParams(sp: SP): { params: FinderParams; notices: Bili
   }
 
   const radiusS = first(sp.radius);
-  if (radiusS !== undefined) check("radius", num(radiusS), { bn: "দূরত্বের সীমা বৈধ নয়, উপেক্ষা করা হয়েছে।", en: "Invalid radius ignored." });
+  if (radiusS !== undefined) check("radius", num(radiusS) ?? Number.NaN, { bn: "দূরত্বের সীমা বৈধ নয়, উপেক্ষা করা হয়েছে।", en: "Invalid radius ignored." });
   check("type", first(sp.type), { bn: "হাসপাতালের ধরন বৈধ নয়, উপেক্ষা করা হয়েছে।", en: "Invalid hospital type ignored." });
   const freeS = first(sp.free);
   if (freeS !== undefined) {
@@ -96,7 +96,7 @@ export function parseFinderParams(sp: SP): { params: FinderParams; notices: Bili
   }
   check("sort", first(sp.sort), { bn: "সাজানোর ধরন বৈধ নয়, ডিফল্ট ব্যবহার করা হয়েছে।", en: "Invalid sort ignored; using default." });
   const pageS = first(sp.page);
-  if (pageS !== undefined) check("page", num(pageS), { bn: "পৃষ্ঠা নম্বর বৈধ নয়, ১ ধরা হয়েছে।", en: "Invalid page; showing page 1." });
+  if (pageS !== undefined) check("page", num(pageS) ?? Number.NaN, { bn: "পৃষ্ঠা নম্বর বৈধ নয়, ১ ধরা হয়েছে।", en: "Invalid page; showing page 1." });
 
   return { params: finderParamsSchema.parse(raw), notices };
 }

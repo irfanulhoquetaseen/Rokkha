@@ -46,6 +46,11 @@ describe("parseFinderParams", () => {
     expect(params).toEqual({ sort: "score", page: 1 });
     expect(notices).toHaveLength(5);
   });
+  it("emits notices for non-numeric radius and page", () => {
+    const { params, notices } = parseFinderParams({ radius: "abc", page: "x" });
+    expect(params).toEqual({ sort: "score", page: 1 });
+    expect(notices).toHaveLength(2);
+  });
   it("takes the first value of repeated params", () => {
     expect(parseFinderParams({ page: ["2", "5"] }).params.page).toBe(2);
   });

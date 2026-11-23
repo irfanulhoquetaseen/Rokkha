@@ -49,10 +49,10 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
   });
 
   it("radius 5 km around Dhanmondi excludes Rajshahi", async () => {
-    const all = await searchHospitals(p({ condition: "SNAKEBITE", area: "dhanmondi", radius: "100" }), NOW);
+    const all = await searchHospitals(p({ condition: "SNAKEBITE", area: "dhanmondi" }), NOW);
     const near = await searchHospitals(p({ condition: "SNAKEBITE", area: "dhanmondi", radius: "5", page: "1" }), NOW);
     expect(near.total).toBeGreaterThan(0);
-    expect(near.total).toBeLessThan(all.total + 1);
+    expect(near.total).toBeLessThan(all.total);
     expect(near.results.every((x) => (x.distanceKm ?? 999) <= 5)).toBe(true);
     expect(near.results.some((x) => x.hospital.district === "Rajshahi")).toBe(false);
     expect(near.radiusIgnored).toBe(false);
@@ -84,6 +84,39 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     const f = await searchHospitals(p({ condition: "STROKE", sort: "freshness" }), NOW);
     const t = f.results.map((x) => x.lastUpdatedAt?.getTime() ?? 0);
     expect([...t].sort((a, b) => b - a)).toEqual(t);
+  });
+
+  it("keeps ranks contiguous after radius filter and re-sort, and clamps a page past the end", async () => {
+    const r = await searchHospitals(p({ condition: "STROKE", area: "dhanmondi", radius: "25", sort: "distance" }), NOW);
+    expect(r.results.map((x) => x.rank)).toEqual(r.results.map((_, i) => i + 1));
+    const f = await searchHospitals(p({ condition: "STROKE", sort: "freshness", page: "2" }), NOW);
+    expect(f.results[0].rank).toBe(11);
+    const far = await searchHospitals(p({ condition: "STROKE", page: "99" }), NOW);
+    expect(far.page).toBe(2);
+    expect(far.total).toBe(20);
+    expect(far.results).toHaveLength(10);
+  });
+
+  it("uses blood compatibility donor groups for the recipient", async () => {
+    const h = await prisma.hospital.findUniqueOrThrow({ where: { slug: "dhanmondi-care-general" } });
+    const setBlood = async (code: string) => {
+      await prisma.hospitalResource.updateMany({
+        where: { hospitalId: h.id, resourceType: { code: { startsWith: "BLOOD_" } } },
+        data: { available: 0, total: 10 },
+      });
+      await prisma.hospitalResource.updateMany({
+        where: { hospitalId: h.id, resourceType: { code } },
+        data: { available: 5, updatedAt: NOW },
+      });
+    };
+    const suitable = async () => {
+      const r = await searchHospitals(p({ condition: "TRAUMA", blood: "AB_NEG", area: "dhanmondi", radius: "5" }), NOW);
+      return r.results.find((x) => x.hospitalId === h.id)?.suitable;
+    };
+    await setBlood("BLOOD_B_NEG"); // B- can donate to AB-
+    expect(await suitable()).toBe(true);
+    await setBlood("BLOOD_B_POS"); // B+ cannot donate to AB-
+    expect(await suitable()).toBe(false);
   });
 
   it("lists the 5 directory hospitals, nearest first when an origin is given", async () => {

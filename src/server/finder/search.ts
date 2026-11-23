@@ -59,6 +59,7 @@ export async function getFirstAidGuide(
 /** Directory-only hospitals (no live data), same type/free filters; nearest first when an origin is known. */
 export async function listDirectory(params: FinderParams): Promise<DirectoryEntry[]> {
   const rows = await prisma.hospital.findMany({
+    orderBy: [{ nameEn: "asc" }, { id: "asc" }],
     where: {
       liveDataEnabled: false,
       ...(params.type ? { type: params.type } : {}),
@@ -85,7 +86,6 @@ export async function listDirectory(params: FinderParams): Promise<DirectoryEntr
 export async function searchHospitals(params: FinderParams, now: Date = new Date()): Promise<FinderResult> {
   const origin = originOf(params);
   const radiusIgnored = params.radius !== undefined && origin === null;
-  const page = params.page;
 
   const conditionRow = params.condition
     ? await prisma.condition.findUnique({
@@ -107,12 +107,13 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
 
   const directory = await listDirectory(params);
   const empty: FinderResult = {
-    condition: null, results: [], total: 0, page, pageSize: PAGE_SIZE, directory, radiusIgnored,
+    condition: null, results: [], total: 0, page: params.page, pageSize: PAGE_SIZE, directory, radiusIgnored,
   };
   if (!conditionRow) return empty;
 
   const [hospitals, compat] = await Promise.all([
     prisma.hospital.findMany({
+      orderBy: { id: "asc" },
       where: {
         liveDataEnabled: true,
         ...(params.type ? { type: params.type } : {}),
@@ -184,6 +185,11 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
       (a, b) => (b.lastUpdatedAt?.getTime() ?? -Infinity) - (a.lastUpdatedAt?.getTime() ?? -Infinity) || a.rank - b.rank,
     );
   }
+
+  // Ranks are over the final filtered + sorted list, so they stay contiguous across pages.
+  ranked = ranked.map((r, i) => ({ ...r, rank: i + 1 }));
+  const lastPage = Math.max(1, Math.ceil(ranked.length / PAGE_SIZE));
+  const page = Math.min(params.page, lastPage);
 
   const byId = new Map(hospitals.map((h) => [h.id, h]));
   const slice = ranked.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => {
