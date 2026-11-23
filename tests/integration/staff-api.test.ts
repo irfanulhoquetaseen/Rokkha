@@ -82,4 +82,13 @@ describe("staff API", () => {
     const res = await PATCH(patchReq({ version: 0 }), ctxR(icuA));
     expect(res.status).toBe(400);
   });
+  it("PATCH without cookie -> 401 (valid or invalid body)", async () => {
+    const anon = { origin: "http://localhost", host: "localhost" };
+    for (const body of [{ version: 1, change: { op: "adjust", delta: 1 } }, { version: 0 }]) {
+      const res = await PATCH(patchReq(body, anon), ctxR(icuA));
+      expect(res.status).toBe(401);
+      expect((await res.json()).error.code).toBe("UNAUTHENTICATED");
+    }
+    expect((await prisma.hospitalResource.findUniqueOrThrow({ where: { id: icuA } })).available).toBe(3);
+  });
 });
