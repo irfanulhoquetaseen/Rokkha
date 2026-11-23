@@ -86,7 +86,10 @@ async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
       {guide ? (
         <FirstAidCard guide={guide} lang={lang} variant="compact" />
       ) : (
-        <p className="text-sm">{finder.noFirstAid[lang]}</p>
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+          <p className="text-sm">{finder.noFirstAid[lang]}</p>
+          <Call999Button lang={lang} />
+        </div>
       )}
       <FilterBar params={params} lang={lang} />
       <Results result={result} params={params} lang={lang} nowMs={nowMs} />

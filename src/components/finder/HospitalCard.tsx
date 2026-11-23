@@ -40,9 +40,10 @@ export function HospitalCard({ item, lang, nowMs }: { item: Item; lang: Lang; no
         </div>
         <span
           className={`shrink-0 rounded-lg px-2 py-1 text-center text-sm font-bold ${scoreClass(item.score, item.suitable)}`}
-          aria-label={`${finder.score[lang]} ${item.score}/100`}
         >
+          <span className="sr-only">{finder.score[lang]} </span>
           {fmtNum(item.score, lang)}
+          <span className="sr-only">/{fmtNum(100, lang)}</span>
         </span>
       </div>
 

@@ -70,7 +70,7 @@ test("filter form submits as a GET and keeps the condition", async ({ page }) =>
 });
 
 test("empty result suggests widening the radius", async ({ page }) => {
-  // Rajshahi origin, 5 km, Chattogram-only filter combo → no hospital in range for heart attack.
+  // Rajshahi centre + 5 km + PRIVATE: the only private hospital that close is directory-only (no live data) → no ranked results.
   await page.goto("/find?condition=HEART_ATTACK&area=rajshahi&radius=5&type=PRIVATE");
   await expect(page.getByTestId("empty-state")).toBeVisible();
   await expect(page.getByRole("link", { name: finder.clearFilters.bn })).toBeVisible();

@@ -43,15 +43,20 @@ export function FirstAidCard({ guide, lang, variant }: { guide: FirstAidGuideVie
       <Call999Button lang={lang} />
       <p className="text-xs break-words text-zinc-700 dark:text-zinc-300">
         {finder.source[lang]}:{" "}
-        <a
-          data-testid="first-aid-source"
-          href={guide.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium underline"
-        >
-          {guide.sourceName}
-        </a>{" "}
+        {/^https?:\/\//i.test(guide.sourceUrl) ? (
+          <a
+            data-testid="first-aid-source"
+            href={guide.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium underline"
+          >
+            {guide.sourceName}
+          </a>
+        ) : (
+          // Defence in depth: never emit a non-http(s) URL (e.g. javascript:) as a link.
+          <span data-testid="first-aid-source-text" className="font-medium">{guide.sourceName}</span>
+        )}{" "}
         · {finder[`review${guide.reviewStatus}`][lang]}
       </p>
       <div role="note" className="rounded-md bg-amber-50 p-2 text-xs font-medium text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
@@ -79,8 +84,10 @@ export function FirstAidCard({ guide, lang, variant }: { guide: FirstAidGuideVie
   }
   return (
     <details data-testid="first-aid-card" open className={shell}>
-      <summary className="-m-1 flex min-h-11 cursor-pointer items-center p-1 text-lg font-bold">
-        {finder.firstAid[lang]}: {conditionName}
+      <summary className="-m-1 flex min-h-11 cursor-pointer items-center p-1">
+        <h2 className="inline text-lg font-bold">
+          {finder.firstAid[lang]}: {conditionName}
+        </h2>
       </summary>
       <div className="mt-3">{body}</div>
     </details>
