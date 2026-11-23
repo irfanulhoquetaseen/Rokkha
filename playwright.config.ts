@@ -19,13 +19,13 @@ function localWebServer() {
     url: `${baseURL}/api/health`,
     reuseExistingServer: false,
     timeout: 180_000,
+    // Safe because dotenv (server.ts) and Next's env loading never override a variable that is
+    // already set: this DATABASE_URL (the *_test DB) wins over the one in .env.
     env: {
       DATABASE_URL: testDbUrl,
       PORT: String(LOCAL_PORT),
       // Separate Next dist dir: Next 16 refuses a 2nd dev server sharing .next/dev (lockfile).
       NEXT_DIST_DIR: E2E_DIST_DIR,
-      // dotenv/Next never override an existing variable; make that explicit so .env can't win.
-      DOTENV_OVERRIDE: "false",
       // All parallel E2E workers share one IP; keep the per-phone login limit at its default.
       LOGIN_LIMIT_PER_IP: "1000",
       SIGNUP_LIMIT_PER_IP: "1000",

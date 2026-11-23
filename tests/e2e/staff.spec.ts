@@ -101,7 +101,10 @@ test("staff logs in, lands on own hospital, and a step persists after reload", a
   await page.getByLabel(auth.password.bn).fill(staffPassword());
   await page.getByRole("button", { name: auth.loginSubmit.bn }).click();
 
-  await expect(page).toHaveURL(/\/staff\/hospitals\/[^/]+$/);
+  // Multi-hop navigation: login POST (bcrypt) -> /staff (proxy 307) -> console RSC render, plus the
+  // router.refresh() that re-renders the header. Under the full parallel dev-server run this takes
+  // longer than the 5 s default, so give it a realistic budget (the button stays "submitting" meanwhile).
+  await expect(page).toHaveURL(/\/staff\/hospitals\/[^/]+$/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { level: 1 })).toContainText(DHANMONDI.nameBn);
 
   const original = await remember(page, code);
