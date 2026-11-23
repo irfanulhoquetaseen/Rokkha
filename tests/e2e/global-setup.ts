@@ -4,7 +4,7 @@ import type { FullConfig } from "@playwright/test";
 import { assertTestDatabaseUrl } from "../support/test-db-guard";
 
 // Pages compiled on first request; warming them avoids dev-server cold-compile reloads mid-test.
-const WARM_ROUTES = ["/", "/login", "/signup", "/status"];
+const WARM_ROUTES = ["/", "/login", "/signup", "/status", "/find?condition=STROKE", "/first-aid/STROKE"];
 
 /**
  * Local E2E only (playwright.config.ts skips this when BASE_URL is set). Playwright starts the
