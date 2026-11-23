@@ -62,6 +62,12 @@ export async function getFirstAidGuide(
   return { ...firstAid, condition: c };
 }
 
+/** Cheap existence check (one indexed select) used by the proxy to answer unknown codes with a real 404. */
+export async function firstAidGuideExists(conditionCode: string): Promise<boolean> {
+  const g = await prisma.firstAidGuide.findFirst({ where: { condition: { code: conditionCode } }, select: { id: true } });
+  return g !== null;
+}
+
 /** Directory-only hospitals (no live data), same type/free filters; nearest first when an origin is known. */
 export async function listDirectory(params: FinderParams): Promise<DirectoryEntry[]> {
   const rows = await prisma.hospital.findMany({

@@ -103,6 +103,16 @@ test("full first-aid page shows do's, don'ts, Call 999 and the source", async ({
   await expect(card.getByTestId("first-aid-source")).toHaveAttribute("href", /^https:\/\//);
 });
 
+test("first aid for an unknown or malformed condition is a real HTTP 404; a known one is 200", async ({ request, page }) => {
+  for (const path of ["/first-aid/NOPE", "/first-aid/bad%20code", `/first-aid/${"X".repeat(65)}`]) {
+    expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(404);
+  }
+  expect((await request.get("/first-aid/STROKE", { maxRedirects: 0 })).status()).toBe(200);
+  const res = await page.goto("/first-aid/NOPE");
+  expect(res?.status()).toBe(404);
+  await expect(page.getByText("This page could not be found.")).toBeVisible();
+});
+
 test("no horizontal scroll on home, finder and first aid", async ({ page }) => {
   for (const url of ["/", "/find?condition=TRAUMA&area=dhanmondi", "/find", "/first-aid/PREGNANCY"]) {
     await page.goto(url);
