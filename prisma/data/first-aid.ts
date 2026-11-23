@@ -126,7 +126,7 @@ export const FIRST_AID: FirstAidSeed[] = [
   // do5 no spinal signs: lie on back + keep warm; else keep still + warm where found -> Severe bleeding First aid steps 2 and 6 ("lie down on their back and keep them warm");
   //     Spinal First aid step 3 "Ensure minimal handling or movement"; unresponsive case "Leave the person as you have found them"
   // dont1 don't remove embedded object -> Severe bleeding GPP "apply pressure around an embedded object ... Avoid removing the object"
-  // dont2 don't move possible spine injury unless danger; if must, 2 people, head in line -> Spinal NOTE (p. 229) "Do not move the person if you suspect a spinal injury.
+  // dont2 don't move possible spine injury unless danger; if must, 2 people, head in line -> Spinal NOTE (p. 230) "Do not move the person if you suspect a spinal injury.
   //     If the person has to be moved, (e.g., there is imminent danger) this is best done with at least two first aid providers, where one can keep the person's head in line with their spine"
   // dont3 don't strap head/neck / collar -> Spinal Guideline "should not apply a cervical collar"; GPP "should not strap their head or neck"
   // dont4 don't remove tourniquet once applied -> Severe bleeding GPP "Once a tourniquet has been applied, keep it in place until EMS arrives"
@@ -137,14 +137,14 @@ export const FIRST_AID: FirstAidSeed[] = [
       "Call 999 or get emergency medical help quickly.",
       "Press firmly and directly on the bleeding wound with a clean cloth or bandage.",
       "If blood soaks through, put another cloth on top and press harder.",
-      "If there is no sign of a neck or back injury, help them lie down on their back and keep them warm; otherwise keep them still and warm where they are.",
+      "If a neck or back injury is not suspected, help them lie down on their back and keep them warm; otherwise keep them still and warm where they are.",
     ],
     dosBn: [
       "সড়ক দুর্ঘটনা বা উঁচু থেকে পড়ার পর ঘাড় বা পিঠে আঘাত থাকতে পারলে রোগীকে যতটা সম্ভব নড়াচড়া না করতে বলুন।",
       "৯৯৯-এ কল করুন বা দ্রুত জরুরি চিকিৎসা সহায়তা নিন।",
       "রক্ত পড়া ক্ষতের ওপর পরিষ্কার কাপড় বা ব্যান্ডেজ দিয়ে সরাসরি জোরে চেপে ধরুন।",
       "কাপড় রক্তে ভিজে গেলে তার ওপর আরেকটি কাপড় দিয়ে আরও জোরে চাপুন।",
-      "ঘাড় বা পিঠে আঘাতের কোনো লক্ষণ না থাকলে আহত ব্যক্তিকে চিত করে শুইয়ে দিন এবং গরম রাখুন; আঘাতের সন্দেহ থাকলে যেখানে আছেন সেখানেই স্থির ও গরম রাখুন।",
+      "ঘাড় বা পিঠে আঘাতের সন্দেহ না থাকলে আহত ব্যক্তিকে চিত করে শুইয়ে দিন এবং গরম রাখুন; আঘাতের সন্দেহ থাকলে যেখানে আছেন সেখানেই স্থির ও গরম রাখুন।",
     ],
     dontsEn: [
       "Do not pull out an object stuck in the wound — press around it instead.",
