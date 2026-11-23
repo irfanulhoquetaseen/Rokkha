@@ -9,8 +9,10 @@ export function apiHandler<C>(
   opts?: { mutation?: boolean },
 ): (req: Request, ctx: C) => Promise<Response> {
   return async (req, ctx) => {
+    // Outside the try: during `next build` prerendering connection() rejects on purpose to mark the
+    // route dynamic. Catching it here would log a bogus "Unhandled error" and turn it into a 500 body.
+    await connection();
     try {
-      await connection();
       if (opts?.mutation && !isSameOrigin(req.headers)) {
         throw new AppError("VALIDATION_ERROR", { bn: "অনুরোধের উৎস সঠিক নয়", en: "Invalid request origin" });
       }
