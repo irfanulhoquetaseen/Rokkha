@@ -1,0 +1,31 @@
+import type { Bilingual } from "@/lib/errors";
+
+export const auth = {
+  appName: { bn: "জীবনসেতু", en: "JibonSetu" },
+  login: { bn: "লগইন", en: "Login" },
+  signup: { bn: "সাইন আপ", en: "Sign up" },
+  logout: { bn: "লগআউট", en: "Logout" },
+  loginTitle: { bn: "লগইন করুন", en: "Log in" },
+  signupTitle: { bn: "নতুন অ্যাকাউন্ট খুলুন", en: "Create an account" },
+  loginSubmit: { bn: "লগইন করুন", en: "Log in" },
+  signupSubmit: { bn: "অ্যাকাউন্ট খুলুন", en: "Create account" },
+  submitting: { bn: "অপেক্ষা করুন…", en: "Please wait…" },
+  name: { bn: "আপনার নাম", en: "Your name" },
+  phone: { bn: "মোবাইল নম্বর", en: "Mobile number" },
+  password: { bn: "পাসওয়ার্ড", en: "Password" },
+  passwordHint: { bn: "কমপক্ষে ৮ অক্ষর", en: "At least 8 characters" },
+  nameInvalid: { bn: "নাম ২ থেকে ৮০ অক্ষরের মধ্যে দিন", en: "Enter a name between 2 and 80 characters" },
+  passwordTooShort: { bn: "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে", en: "Password must be at least 8 characters" },
+  passwordRequired: { bn: "পাসওয়ার্ড দিন", en: "Enter your password" },
+  passwordTooLong: { bn: "পাসওয়ার্ড অনেক লম্বা (সর্বোচ্চ ৭২ বাইট)", en: "Password is too long (max 72 bytes)" },
+  noAccount: { bn: "অ্যাকাউন্ট নেই?", en: "No account yet?" },
+  haveAccount: { bn: "আগে থেকেই অ্যাকাউন্ট আছে?", en: "Already have an account?" },
+  whyLogin: {
+    bn: "হাসপাতাল খোঁজা ও প্রাথমিক চিকিৎসা দেখতে লগইন লাগে না। শুধু রিজার্ভ করতে লগইন করুন।",
+    en: "No login is needed to find hospitals or read first aid. Log in only to reserve.",
+  },
+  staffConsole: { bn: "স্টাফ কনসোল", en: "Staff console" },
+  switchLang: { bn: "English", en: "বাংলা" },
+  switchLangLabel: { bn: "Switch to English", en: "বাংলায় দেখুন" },
+  networkError: { bn: "সংযোগে সমস্যা, আবার চেষ্টা করুন", en: "Connection problem, please try again" },
+} as const satisfies Record<string, Bilingual>;

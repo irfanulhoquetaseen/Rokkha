@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
+import { SiteHeader, SiteHeaderSkeleton } from "@/components/SiteHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +20,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <div role="note" className="bg-amber-300 px-4 py-1 text-center text-xs font-semibold text-black">
           DEMO DATA — not real hospital availability
         </div>
+        <Suspense fallback={<SiteHeaderSkeleton />}>
+          <SiteHeader />
+        </Suspense>
         {children}
       </body>
     </html>
