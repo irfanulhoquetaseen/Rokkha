@@ -1,0 +1,18 @@
+// JibonSetu data model.
+// P0 contains only the minimal model used by the health check; the real schema arrives in P1.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// One row per server boot; lets /api/health prove a real read/write round-trip exists.
+model SystemHeartbeat {
+  id        Int      @id @default(autoincrement())
+  note      String
+  createdAt DateTime @default(now())
+}

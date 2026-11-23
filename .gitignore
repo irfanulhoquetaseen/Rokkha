@@ -1,0 +1,35 @@
+.claude/settings.local.json
+node_modules/
+.env
+.env.*
+!.env.example
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# compiled custom server
+/dist/
+
+# prisma generated client
+/src/generated/
+
+# testing
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.vercel
+.railway/
