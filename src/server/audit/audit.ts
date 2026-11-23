@@ -16,7 +16,7 @@ export type AuditEntry = {
 };
 
 const json = (v: unknown) =>
-  v === undefined || v === null ? Prisma.JsonNull : (v as Prisma.InputJsonValue);
+  v === undefined || v === null ? Prisma.DbNull : (v as Prisma.InputJsonValue);
 
 export async function audit(entry: AuditEntry, db: Prisma.TransactionClient = prisma): Promise<void> {
   await db.auditLog.create({

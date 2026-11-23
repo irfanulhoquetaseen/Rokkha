@@ -18,3 +18,12 @@ describe("audit", () => {
     expect(await prisma.auditLog.count()).toBe(1);
   });
 });
+
+describe("audit omitted values", () => {
+  beforeEach(resetDb);
+  it("stores omitted before/after as SQL NULL", async () => {
+    await audit({ action: "LOGIN", entityType: "User" });
+    const [row] = await prisma.$queryRaw<{ b: boolean; a: boolean }[]>`SELECT ("before" IS NULL) AS b, ("after" IS NULL) AS a FROM "AuditLog"`;
+    expect(row).toEqual({ b: true, a: true });
+  });
+});

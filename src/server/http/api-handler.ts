@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { connection, NextResponse } from "next/server";
 import type { ZodType } from "zod";
 import { AppError, toErrorBody } from "@/lib/errors";
@@ -31,7 +32,14 @@ export async function parseBody<T>(req: Request, schema: ZodType<T>): Promise<T>
   return schema.parse(json);
 }
 
+/** Railway's edge appends the real client IP, so trust the right-most XFF entry (left entries are client-controlled). */
 export function clientIp(headers: Headers): string | null {
-  const first = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return first || null;
+  const xff = headers.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff.split(",").map((p) => p.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    return last && isIP(last) ? last : null;
+  }
+  const real = headers.get("x-real-ip")?.trim();
+  return real && isIP(real) ? real : null;
 }
