@@ -35,6 +35,17 @@ const IFRC_2020_NAME =
 const IFRC_2020_URL =
   "https://www.ifrc.org/sites/default/files/2022-02/EN_GFARC_GUIDELINES_2020.pdf";
 
+/** Chapter-level IFRC citation; `page` is the PDF page (equals the printed page number). */
+function ifrc(
+  chapter: string,
+  page: number,
+): Pick<FirstAidSeed, "sourceName" | "sourceUrl"> {
+  return {
+    sourceName: `${IFRC_2020_NAME} — ${chapter}`,
+    sourceUrl: `${IFRC_2020_URL}#page=${page}`,
+  };
+}
+
 export const FIRST_AID: FirstAidSeed[] = [
   // STROKE — IFRC 2020, "Stroke" (pp. 271–273)
   // do1 FAST check            -> "FAST ... FACE ... ARM ... SPEECH ... TIME" (Early recognition)
@@ -68,14 +79,13 @@ export const FIRST_AID: FirstAidSeed[] = [
       "ঠিক হয়ে যায় কি না দেখার জন্য অপেক্ষা করবেন না — লক্ষণ চলে গেলেও রোগীকে হাসপাতালে নিতে হবে।",
       "নিজে থেকে অক্সিজেন দেবেন না।",
     ],
-    sourceName: IFRC_2020_NAME,
-    sourceUrl: IFRC_2020_URL,
+    ...ifrc("Stroke, p. 271", 271),
   },
 
   // HEART_ATTACK — IFRC 2020, "Chest pain" (pp. 264–266)
   // do1 call 999 immediately          -> Good practice point "If a heart attack is suspected, EMS should be accessed immediately"; First aid step 2
   // do2 help sit comfortably, rest    -> First aid step 1; Good practice point "comfortable position; the person should refrain from physical activity"
-  // do3 help take own prescribed medicine -> First aid step 1 "...and take their medication"; Good practice point on angina medication
+  // do3 help take prescribed angina medicine -> Good practice point "If the person has medication, is diagnosed with angina and showing signs of acute chest pain, the first aid provider should assist them to take their medication"; First aid step 1
   // do4 reassure, watch breathing; CPR if unresponsive & abnormal breathing -> First aid step 4; NOTE "If the person becomes Unresponsive with abnormal breathing, start CPR"
   // dont1 no physical activity / walking  -> Good practice point "refrain from physical activity"
   // dont2 don't wait even if short pain   -> Good practice point "Access EMS even if the pain has only lasted a couple of minutes"
@@ -85,13 +95,13 @@ export const FIRST_AID: FirstAidSeed[] = [
     dosEn: [
       "Call 999 or go to the nearest hospital immediately.",
       "Help the person sit down in a comfortable position and rest.",
-      "If they have their own heart medicine prescribed by a doctor, help them take it.",
+      "If they have been prescribed medicine for chest pain (angina), help them take it.",
       "Stay with them, reassure them and watch their breathing. If they collapse and are not breathing normally, start CPR.",
     ],
     dosBn: [
       "সঙ্গে সঙ্গে ৯৯৯-এ কল করুন বা নিকটস্থ হাসপাতালে যান।",
       "রোগীকে আরামদায়কভাবে বসতে সাহায্য করুন এবং বিশ্রাম নিতে দিন।",
-      "ডাক্তারের দেওয়া নিজের হার্টের ওষুধ সঙ্গে থাকলে তা খেতে সাহায্য করুন।",
+      "বুকে ব্যথার (অ্যানজাইনা) জন্য ডাক্তারের দেওয়া ওষুধ থাকলে তা খেতে সাহায্য করুন।",
       "রোগীর পাশে থাকুন, আশ্বস্ত করুন এবং শ্বাস-প্রশ্বাস খেয়াল রাখুন। অজ্ঞান হয়ে গেলে ও স্বাভাবিকভাবে শ্বাস না নিলে সিপিআর শুরু করুন।",
     ],
     dontsEn: [
@@ -104,50 +114,51 @@ export const FIRST_AID: FirstAidSeed[] = [
       "দেরি করবেন না — ব্যথা মাত্র দু-এক মিনিট থাকলেও সাহায্য নিন।",
       "শুধু গ্যাস বা বদহজম ভেবে অবহেলা করবেন না।",
     ],
-    sourceName: IFRC_2020_NAME,
-    sourceUrl: IFRC_2020_URL,
+    ...ifrc("Chest pain, p. 264", 264),
   },
 
   // TRAUMA — IFRC 2020, "Severe bleeding" (pp. 187–189) and "Spinal injury" (pp. 228–229)
-  // do1 call 999              -> Severe bleeding GPP "EMS should be accessed for all severe bleeding"; Spinal injury GPP "always access EMS"
-  // do2 firm direct pressure with cloth -> Severe bleeding Key action + Guideline "direct manual compression"; GPP clean clothes/towels; NOTE barrier cloth/plastic
-  // do3 soaked -> add second layer, press harder -> First aid step 4
-  // do4 lie down, keep warm (shock) -> First aid steps 2 and 6
-  // do5 spinal suspicion: keep still -> Spinal injury Key action; GPP "advised to keep as still as possible"
-  // dont1 don't remove embedded object -> GPP "apply pressure around an embedded object ... Avoid removing the object"
-  // dont2 don't move possible spine injury unless absolutely necessary -> Spinal GPP "should not be moved unless absolutely necessary"
+  // do1 possible neck/back injury: keep still -> Spinal Key action "keep as still as possible"; GPP "advised to keep as still as possible"; First aid step 1;
+  //     Early recognition "fallen from a height greater than standing", "involved in a road traffic collision"
+  // do2 call 999 / emergency help -> Severe bleeding GPP "EMS should be accessed for all severe bleeding"; Spinal GPP "always access EMS when suspecting a spinal injury"
+  // do3 firm direct pressure with cloth -> Severe bleeding Key action + Guideline "direct manual compression"; GPP clean clothes/towels; NOTE barrier cloth/plastic
+  // do4 soaked -> add second layer, press harder -> Severe bleeding First aid step 4
+  // do5 no spinal signs: lie on back + keep warm; else keep still + warm where found -> Severe bleeding First aid steps 2 and 6 ("lie down on their back and keep them warm");
+  //     Spinal First aid step 3 "Ensure minimal handling or movement"; unresponsive case "Leave the person as you have found them"
+  // dont1 don't remove embedded object -> Severe bleeding GPP "apply pressure around an embedded object ... Avoid removing the object"
+  // dont2 don't move possible spine injury unless danger; if must, 2 people, head in line -> Spinal NOTE (p. 229) "Do not move the person if you suspect a spinal injury.
+  //     If the person has to be moved, (e.g., there is imminent danger) this is best done with at least two first aid providers, where one can keep the person's head in line with their spine"
   // dont3 don't strap head/neck / collar -> Spinal Guideline "should not apply a cervical collar"; GPP "should not strap their head or neck"
-  // dont4 don't remove tourniquet once applied -> GPP "Once a tourniquet has been applied, keep it in place until EMS arrives"
+  // dont4 don't remove tourniquet once applied -> Severe bleeding GPP "Once a tourniquet has been applied, keep it in place until EMS arrives"
   {
     conditionCode: "TRAUMA",
     dosEn: [
-      "Call 999 or get the injured person to a hospital as fast as possible.",
+      "After a road crash or a fall from a height, if the neck or back may be hurt, ask the person to stay as still as possible.",
+      "Call 999 or get emergency medical help quickly.",
       "Press firmly and directly on the bleeding wound with a clean cloth or bandage.",
       "If blood soaks through, put another cloth on top and press harder.",
-      "Help the person lie down on their back and keep them warm.",
-      "After a road crash or fall, if the neck or back may be hurt, ask the person to stay as still as possible.",
+      "If there is no sign of a neck or back injury, help them lie down on their back and keep them warm; otherwise keep them still and warm where they are.",
     ],
     dosBn: [
-      "৯৯৯-এ কল করুন বা আহত ব্যক্তিকে যত দ্রুত সম্ভব হাসপাতালে নিন।",
+      "সড়ক দুর্ঘটনা বা উঁচু থেকে পড়ার পর ঘাড় বা পিঠে আঘাত থাকতে পারলে রোগীকে যতটা সম্ভব নড়াচড়া না করতে বলুন।",
+      "৯৯৯-এ কল করুন বা দ্রুত জরুরি চিকিৎসা সহায়তা নিন।",
       "রক্ত পড়া ক্ষতের ওপর পরিষ্কার কাপড় বা ব্যান্ডেজ দিয়ে সরাসরি জোরে চেপে ধরুন।",
       "কাপড় রক্তে ভিজে গেলে তার ওপর আরেকটি কাপড় দিয়ে আরও জোরে চাপুন।",
-      "আহত ব্যক্তিকে চিত করে শুইয়ে দিন এবং গরম রাখুন।",
-      "সড়ক দুর্ঘটনা বা উঁচু থেকে পড়ার পর ঘাড় বা পিঠে আঘাত থাকতে পারলে রোগীকে যতটা সম্ভব নড়াচড়া না করতে বলুন।",
+      "ঘাড় বা পিঠে আঘাতের কোনো লক্ষণ না থাকলে আহত ব্যক্তিকে চিত করে শুইয়ে দিন এবং গরম রাখুন; আঘাতের সন্দেহ থাকলে যেখানে আছেন সেখানেই স্থির ও গরম রাখুন।",
     ],
     dontsEn: [
       "Do not pull out an object stuck in the wound — press around it instead.",
-      "Do not move a person who may have a neck or back injury unless it is absolutely necessary.",
+      "Do not move a person who may have a neck or back injury unless they are in immediate danger; if you must, use at least two people and keep the head in line with the spine.",
       "Do not tie or strap the head or neck.",
       "If a tourniquet has been put on, do not remove it — leave it for the medical team.",
     ],
     dontsBn: [
       "ক্ষতে কিছু গেঁথে থাকলে টেনে বের করবেন না — এর চারপাশে চাপ দিন।",
-      "ঘাড় বা পিঠে আঘাত থাকতে পারে এমন ব্যক্তিকে একান্ত প্রয়োজন ছাড়া সরাবেন না।",
+      "ঘাড় বা পিঠে আঘাত থাকতে পারে এমন ব্যক্তিকে তাৎক্ষণিক বিপদ না থাকলে সরাবেন না; সরাতেই হলে অন্তত দুজন মিলে মাথা ও মেরুদণ্ড এক সোজা রেখায় রেখে সরান।",
       "মাথা বা ঘাড় বেঁধে দেবেন না।",
       "টুর্নিকেট (শক্ত বাঁধন) দেওয়া হয়ে থাকলে খুলবেন না — চিকিৎসকদের জন্য রেখে দিন।",
     ],
-    sourceName: IFRC_2020_NAME,
-    sourceUrl: IFRC_2020_URL,
+    ...ifrc("Severe bleeding, p. 187; Spinal injury, p. 228", 187),
   },
 
   // DENGUE — WHO fact sheet "Dengue and severe dengue"
@@ -181,7 +192,7 @@ export const FIRST_AID: FirstAidSeed[] = [
       "https://www.who.int/news-room/fact-sheets/detail/dengue-and-severe-dengue",
   },
 
-  // BREATHING — IFRC 2020, "Breathing difficulties" (p. 174) and "Asthma attack" (pp. 180–181)
+  // BREATHING — IFRC 2020, "Breathing difficulties" (p. 175) and "Asthma attack" (pp. 180–181)
   // do1 comfortable position, usually seated / leaning forward -> Breathing difficulties Key action + Guideline "seated position or an arm bracing position"
   // do2 help use own inhaler/medicine -> Asthma First aid step 2; Breathing GPP "assist the person to take their medication"
   // do3 loosen tight clothing -> Asthma First aid step 2; GPP
@@ -213,8 +224,7 @@ export const FIRST_AID: FirstAidSeed[] = [
       "রোগীকে একা রেখে যাবেন না।",
       "ইনহেলারে কয়েক মিনিটের মধ্যে কাজ না হলে বা ইনহেলার না থাকলে অপেক্ষা করবেন না — সাহায্য নিন।",
     ],
-    sourceName: IFRC_2020_NAME,
-    sourceUrl: IFRC_2020_URL,
+    ...ifrc("Breathing difficulties, p. 175; Asthma attack, p. 180", 180),
   },
 
   // PREGNANCY — IFRC 2020, "Emergency childbirth" (pp. 313–316)
@@ -255,8 +265,7 @@ export const FIRST_AID: FirstAidSeed[] = [
       "নাড়ি (আম্বিলিক্যাল কর্ড) ধরে টানবেন না।",
       "শিশু স্বাভাবিকভাবে শ্বাস নিলে তাড়াহুড়ো করে নাড়ি কাটবেন না — স্বাস্থ্যকর্মীর জন্য রেখে দিন।",
     ],
-    sourceName: IFRC_2020_NAME,
-    sourceUrl: IFRC_2020_URL,
+    ...ifrc("Emergency childbirth, p. 313", 313),
   },
 
   // SNAKEBITE — WHO "Snakebite envenoming — Treatment", Box 1 "First aid for snakebites"
@@ -267,7 +276,7 @@ export const FIRST_AID: FirstAidSeed[] = [
   // do5 to hospital ASAP -> "Transport the person to a health facility as soon as possible"
   // do6 vomiting -> left side -> "Vomiting may occur, so place the person on their left side in the recovery position"
   // dont1 no tight tourniquet -> "Never use a tight arterial tourniquet"
-  // dont2 no traditional/herbal/unproven -> "Avoid traditional first aid methods, herbal medicines and other unproven or unsafe forms of first aid"
+  // dont2 no traditional healers/chanting/herbal/unproven -> "Avoid traditional first aid methods, herbal medicines and other unproven or unsafe forms of first aid"
   // dont3 don't let them walk -> "Immobilize the person completely ... makeshift stretcher to carry the person"
   {
     conditionCode: "SNAKEBITE",
@@ -289,7 +298,7 @@ export const FIRST_AID: FirstAidSeed[] = [
     ],
     dontsEn: [
       "Do not tie a tight band or tourniquet.",
-      "Do not use traditional healers (ojha), herbs or other unproven treatments.",
+      "Do not use traditional healers (ojha), chanting/incantations, herbs or other unproven treatments.",
       "Do not let the person walk — carry them.",
     ],
     dontsBn: [
