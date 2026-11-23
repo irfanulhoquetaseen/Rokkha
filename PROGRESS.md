@@ -17,6 +17,7 @@ P0 Foundation & live deploy: **done** (24 Nov 2026). Next: P1.
 - Set up an integration-test database (separate from prod) before P1 engine tests.
 
 ## Known issues
+- **Railway auto-deploy on push is NOT active yet.** The `web` service has no GitHub deploy trigger: Railway reports "no one in the project has access to" the repo (the Railway GitHub App isn't installed for it). Deploys currently happen by re-connecting the source (the latest one, `aa0698a`, is live). Fix: install the Railway GitHub App with access to `jibonsetu`, then recreate the trigger.
 - `npm audit`: 3 high in `effect` (pulled in by the Prisma 7 CLI config loader; dev/CLI only, not in the app runtime). The only "fix" is downgrading to Prisma 6. Accepted.
 - Prisma CLI prints an "update available → 8.0.0-rc" banner: ignore. That is an RC on the `latest` tag.
 - Railway warns Config-as-Code (`railway.json`) is deprecated (works until 2026-12-01). We don't use it; build/deploy settings live on the service.
