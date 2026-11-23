@@ -70,3 +70,13 @@ export async function listHospitalResources(
     resources: hospital.resources.map((r) => toResourceView(r, now)),
   };
 }
+
+/** Default hospital for an admin opening /staff: the first live-data hospital by English name. */
+export async function firstLiveHospitalId(): Promise<string | null> {
+  const h = await prisma.hospital.findFirst({
+    where: { liveDataEnabled: true },
+    orderBy: { nameEn: "asc" },
+    select: { id: true },
+  });
+  return h?.id ?? null;
+}
