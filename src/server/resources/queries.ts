@@ -4,9 +4,7 @@ import { AppError } from "@/lib/errors";
 import { requireHospitalAccess } from "@/server/auth/guards";
 import type { SessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
-
-/** A resource row is "stale" when nobody has confirmed it for more than 30 minutes. */
-export const STALE_AFTER_MS = 30 * 60 * 1000;
+import { STALE_AFTER_MS } from "@/server/matching";
 
 export type ResourceView = {
   id: string;

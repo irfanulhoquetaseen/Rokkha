@@ -7,7 +7,8 @@ import { AppError } from "@/lib/errors";
 import { staff } from "@/lib/i18n/staff";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getLang } from "@/server/i18n/lang";
-import { listHospitalResources, STALE_AFTER_MS, type ResourceView } from "@/server/resources/queries";
+import { STALE_AFTER_MS } from "@/server/matching";
+import { listHospitalResources, type ResourceView } from "@/server/resources/queries";
 
 export const metadata: Metadata = { title: "Staff console — JibonSetu" };
 

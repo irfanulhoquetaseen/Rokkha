@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { isValidCoord } from "@/server/matching";
 import type { BloodGroup } from "@/server/matching";
+import type { Bilingual } from "@/lib/errors";
 import { findArea } from "./areas";
-
-export type Bilingual = { bn: string; en: string };
 
 export const RADIUS_OPTIONS = [5, 10, 25, 50, 100] as const;
 export const SORT_OPTIONS = ["score", "distance", "freshness"] as const;
