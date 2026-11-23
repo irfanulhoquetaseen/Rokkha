@@ -108,4 +108,33 @@ describe("auth service", () => {
     const dump = JSON.stringify(rows);
     for (const secret of ["secret123", "wrongpass", s.token, l.token]) expect(dump).not.toContain(secret);
   });
+
+  it("rejects a password over 72 UTF-8 bytes (30 Bangla chars) with VALIDATION_ERROR", async () => {
+    const bangla = "অ".repeat(30); // 30 chars, 90 bytes
+    const e = await errOf(signup({ name: "Rahim", phone: "01711111111", password: bangla }, meta));
+    expect(e.code).toBe("VALIDATION_ERROR");
+    expect(await prisma.user.count()).toBe(0);
+    const l = await errOf(login({ phone: "01711111111", password: bangla }, meta));
+    expect(l.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("audits only the first rate-limited login of a window", async () => {
+    await signup({ name: "Rahim", phone: "01711111111", password: "secret123" }, meta);
+    const codes: string[] = [];
+    for (let i = 0; i < 7; i++) codes.push((await errOf(login({ phone: "01711111111", password: "wrongpass" }, meta))).code);
+    expect(codes).toEqual([...Array(5).fill("UNAUTHENTICATED"), "RATE_LIMITED", "RATE_LIMITED"]);
+    const failed = await prisma.auditLog.findMany({ where: { action: "LOGIN_FAILED" } });
+    const limited = failed.filter((r) => (r.after as { reason?: string } | null)?.reason === "RATE_LIMITED");
+    expect(failed).toHaveLength(6);
+    expect(limited).toHaveLength(1);
+    expect(limited[0]).toMatchObject({ entityId: "01711111111", ip: IP });
+  });
+
+  it("signup with previousToken deletes the old session (rotation)", async () => {
+    const a = await signup({ name: "Rahim", phone: "01711111111", password: "secret123" }, meta);
+    const b = await signup({ name: "Karim", phone: "01722222222", password: "secret123" }, { ip: IP, previousToken: a.token });
+    expect(await validateSessionToken(a.token)).toBeNull();
+    expect(await validateSessionToken(b.token)).toMatchObject({ phone: "01722222222" });
+    expect(await prisma.session.count()).toBe(1);
+  });
 });

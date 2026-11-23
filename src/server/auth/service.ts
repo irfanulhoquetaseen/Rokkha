@@ -7,16 +7,23 @@ import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { loginLimiterByIp, loginLimiterByPhone, signupLimiterByIp } from "@/server/auth/rate-limit";
 import { createSession, deleteSession, validateSessionToken, type SessionUser } from "@/server/auth/session";
 
+// bcrypt only uses the first 72 BYTES; a Bangla character is ~3 bytes in UTF-8, so limit bytes, not chars.
+const PASSWORD_TOO_LONG = {
+  bn: "পাসওয়ার্ড অনেক লম্বা (সর্বোচ্চ ৭২ বাইট)",
+  en: "Password is too long (max 72 bytes)",
+};
+const fitsBcrypt = (p: string) => Buffer.byteLength(p, "utf8") <= 72;
+
 // z.object strips unknown keys, so a client-sent `role` / `hospitalId` can never reach the DB.
 const signupSchema = z.object({
   name: z.string().trim().min(2).max(80),
   phone: bdPhoneSchema,
-  password: z.string().min(8).max(72), // bcrypt only uses the first 72 bytes
+  password: z.string().min(8).refine(fitsBcrypt, { message: PASSWORD_TOO_LONG.en }),
 });
 
 const loginSchema = z.object({
   phone: bdPhoneSchema,
-  password: z.string().min(1).max(72),
+  password: z.string().min(1).refine(fitsBcrypt, { message: PASSWORD_TOO_LONG.en }),
 });
 
 type AuthResult = { user: SessionUser; token: string; expiresAt: Date };
@@ -39,8 +46,23 @@ function parse<T>(schema: z.ZodType<T>, input: unknown): T {
   throw new AppError("VALIDATION_ERROR", undefined, details);
 }
 
-function enforce(result: { allowed: boolean; retryAfterSec: number }): void {
-  if (!result.allowed) throw new AppError("RATE_LIMITED", undefined, { retryAfterSec: result.retryAfterSec });
+type HitResult = { allowed: boolean; retryAfterSec: number; firstBlock?: boolean };
+
+function rateLimited(result: HitResult): AppError {
+  return new AppError("RATE_LIMITED", undefined, { retryAfterSec: result.retryAfterSec });
+}
+
+function enforce(result: HitResult): void {
+  if (!result.allowed) throw rateLimited(result);
+}
+
+/** Like enforce, but the first blocked attempt of each window is audited (later ones are not, to avoid log floods). */
+async function enforceLogin(result: HitResult, entityId: string, ip: string | null): Promise<void> {
+  if (result.allowed) return;
+  if (result.firstBlock) {
+    await audit({ action: "LOGIN_FAILED", entityType: "User", entityId, ip, after: { reason: "RATE_LIMITED" } });
+  }
+  throw rateLimited(result);
 }
 
 function isUniqueViolation(e: unknown): boolean {
@@ -49,7 +71,7 @@ function isUniqueViolation(e: unknown): boolean {
 
 export async function signup(
   input: { name: string; phone: string; password: string },
-  meta: { ip: string | null },
+  meta: { ip: string | null; previousToken?: string | null },
 ): Promise<AuthResult> {
   if (meta.ip) enforce(signupLimiterByIp.hit(meta.ip));
   const data = parse(signupSchema, input);
@@ -70,6 +92,8 @@ export async function signup(
     throw e;
   }
 
+  // Rotation parity with login: any pre-signup session is destroyed.
+  if (meta.previousToken) await deleteSession(meta.previousToken);
   const { token, expiresAt } = await createSession(created.id);
   return { user: created, token, expiresAt };
 }
@@ -78,9 +102,9 @@ export async function login(
   input: { phone: string; password: string },
   meta: { ip: string | null; previousToken?: string | null },
 ): Promise<AuthResult> {
-  if (meta.ip) enforce(loginLimiterByIp.hit(meta.ip));
+  if (meta.ip) await enforceLogin(loginLimiterByIp.hit(meta.ip), meta.ip, meta.ip);
   const data = parse(loginSchema, input);
-  enforce(loginLimiterByPhone.hit(data.phone));
+  await enforceLogin(loginLimiterByPhone.hit(data.phone), data.phone, meta.ip);
 
   const user = await prisma.user.findUnique({ where: { phone: data.phone } });
   const ok = await verifyPassword(data.password, user?.passwordHash ?? (await getDummyHash()));

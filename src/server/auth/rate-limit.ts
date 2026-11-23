@@ -4,7 +4,8 @@
  * is the whole truth. Scaling to several instances would need a shared store (Postgres/Redis).
  */
 export type RateLimiter = {
-  hit(key: string): { allowed: boolean; retryAfterSec: number };
+  /** `firstBlock` is true only on the first rejected hit of a window (count === limit + 1). */
+  hit(key: string): { allowed: boolean; retryAfterSec: number; firstBlock?: boolean };
   reset(key: string): void;
 };
 
@@ -26,7 +27,11 @@ export function createRateLimiter(opts: { limit: number; windowMs: number; now?:
       }
       w.count += 1;
       if (w.count <= limit) return { allowed: true, retryAfterSec: 0 };
-      return { allowed: false, retryAfterSec: Math.max(1, Math.ceil((w.start + windowMs - t) / 1000)) };
+      return {
+        allowed: false,
+        retryAfterSec: Math.max(1, Math.ceil((w.start + windowMs - t) / 1000)),
+        firstBlock: w.count === limit + 1,
+      };
     },
     reset(key) {
       windows.delete(key);
@@ -34,7 +39,15 @@ export function createRateLimiter(opts: { limit: number; windowMs: number; now?:
   };
 }
 
+/** Positive integer from env, else the default (invalid values never disable limiting). */
+export function envLimit(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw || !/^\d+$/.test(raw)) return fallback;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n > 0 ? n : fallback;
+}
+
 const MIN = 60 * 1000;
-export const loginLimiterByPhone = createRateLimiter({ limit: 5, windowMs: 15 * MIN });
-export const loginLimiterByIp = createRateLimiter({ limit: 30, windowMs: 15 * MIN });
-export const signupLimiterByIp = createRateLimiter({ limit: 10, windowMs: 60 * MIN });
+export const loginLimiterByPhone = createRateLimiter({ limit: envLimit("LOGIN_LIMIT_PER_PHONE", 5), windowMs: 15 * MIN });
+export const loginLimiterByIp = createRateLimiter({ limit: envLimit("LOGIN_LIMIT_PER_IP", 30), windowMs: 15 * MIN });
+export const signupLimiterByIp = createRateLimiter({ limit: envLimit("SIGNUP_LIMIT_PER_IP", 10), windowMs: 60 * MIN });
