@@ -34,3 +34,6 @@ yarn-error.log*
 .pnpm-debug.log*
 .vercel
 .railway/
+
+# superpowers SDD scratch
+/.superpowers/
