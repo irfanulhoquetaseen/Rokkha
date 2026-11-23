@@ -47,6 +47,9 @@ export type RankedHospital = {
   distanceKm: number | null;
   stale: boolean;
   reasons: Reason[];
-  /** Most recent update of any resource at this hospital (null when it has none). */
+  /**
+   * Oldest update among requirement-matched rows (the value that drives `stale`); if no row
+   * matches a requirement, the newest update of any row; null when the hospital has no rows.
+   */
   lastUpdatedAt: Date | null;
 };

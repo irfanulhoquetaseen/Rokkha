@@ -40,7 +40,7 @@ function unmetReason({ req, have, countable }: Check): Reason {
   if (countable && have > 0) {
     return {
       kind,
-      bn: `${icon} পর্যাপ্ত ${req.nameBn} নেই (দরকার ${req.minQuantity}টি, আছে ${have}টি)`,
+      bn: `${icon} পর্যাপ্ত ${req.nameBn} নেই (আছে ${have}টি, দরকার ${req.minQuantity}টি)`,
       en: `${icon} Not enough ${req.nameEn} (${have} available, ${req.minQuantity} needed)`,
     };
   }
@@ -58,15 +58,18 @@ function scoreHospital(h: MatchHospital, input: MatchInput): Omit<RankedHospital
   const distance =
     distanceKm === null ? DISTANCE_NO_ORIGIN : DISTANCE_MAX * Math.max(0, 1 - distanceKm / DISTANCE_ZERO_AT_KM);
 
+  // Freshness is judged on the rows the requirements actually use: the OLDEST of them is the
+  // hospital's "last updated" time, so stale, the "N min" reason and lastUpdatedAt always agree.
   const nowMs = input.now.getTime();
-  const oldestMs = Math.min(...checks.flatMap((c) => c.rows.map((r) => r.updatedAt.getTime())));
-  const stale = nowMs - oldestMs > STALE_AFTER_MS; // Math.min([]) = Infinity -> never stale
+  const matchedMs = checks.flatMap((c) => c.rows.map((r) => r.updatedAt.getTime()));
+  const oldestMs = matchedMs.length ? Math.min(...matchedMs) : null;
+  const stale = oldestMs !== null && nowMs - oldestMs > STALE_AFTER_MS;
   const freshness = stale ? 0 : FRESHNESS_MAX;
 
   const score = Math.min(100, Math.max(0, Math.round(capability + distance + freshness)));
 
   const warnings: Reason[] = checks.filter((c) => !c.satisfied && c.req.level === "PREFERRED").map(unmetReason);
-  if (stale) {
+  if (stale && oldestMs !== null) {
     const minutes = Math.floor((nowMs - oldestMs) / 60_000);
     warnings.push({
       kind: "warn",
@@ -88,7 +91,9 @@ function scoreHospital(h: MatchHospital, input: MatchInput): Omit<RankedHospital
     ...checks.filter((c) => c.satisfied).map(okReason),
   ];
 
-  const updatedMs = h.resources.map((r) => r.updatedAt.getTime());
+  // Fallback when no row matches a requirement: newest row overall (null when the hospital has none).
+  const allMs = h.resources.map((r) => r.updatedAt.getTime());
+  const lastMs = oldestMs ?? (allMs.length ? Math.max(...allMs) : null);
   return {
     hospitalId: h.id,
     score,
@@ -96,7 +101,7 @@ function scoreHospital(h: MatchHospital, input: MatchInput): Omit<RankedHospital
     distanceKm,
     stale,
     reasons,
-    lastUpdatedAt: updatedMs.length ? new Date(Math.max(...updatedMs)) : null,
+    lastUpdatedAt: lastMs === null ? null : new Date(lastMs),
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   rankHospitals,
+  STALE_AFTER_MS,
   type BloodGroup,
   type MatchHospital,
   type MatchInput,
@@ -131,6 +132,44 @@ describe("rankHospitals", () => {
     })));
     expect(r.stale).toBe(false);
     expect(r.score).toBe(100);
+  });
+
+  it("lastUpdatedAt is the oldest requirement-matched row and agrees with stale", () => {
+    const old = new Date(NOW.getTime() - 120 * 60_000);
+    const recent = new Date(NOW.getTime() - 60_000);
+    const out = rankHospitals(input({
+      requirements: [req("ICU_BED", "CRITICAL"), req("CT_SCAN", "PREFERRED")],
+      hospitals: [
+        hospital("stale", [countable("ICU_BED", 2, { updatedAt: old }), countable("GENERAL_BED", 9, { updatedAt: recent })]),
+        hospital("fresh", [countable("ICU_BED", 2, { updatedAt: recent }), status("CT_SCAN", true, { updatedAt: NOW })]),
+      ],
+    }));
+    const byId = Object.fromEntries(out.map((r) => [r.hospitalId, r]));
+    expect(byId.stale?.lastUpdatedAt).toEqual(old);
+    expect(byId.fresh?.lastUpdatedAt).toEqual(recent);
+    for (const r of out) {
+      expect(r.stale).toBe(NOW.getTime() - r.lastUpdatedAt!.getTime() > STALE_AFTER_MS);
+    }
+  });
+
+  it("lastUpdatedAt falls back to newest row when no row matches a requirement", () => {
+    const recent = new Date(NOW.getTime() - 60_000);
+    const r = only(rankHospitals(input({
+      requirements: [req("CATH_LAB", "CRITICAL")],
+      hospitals: [hospital("h", [countable("GENERAL_BED", 9, { updatedAt: recent }), countable("ICU_BED", 1, { updatedAt: NOW })])],
+    })));
+    expect(r.lastUpdatedAt).toEqual(NOW);
+    expect(r.stale).toBe(false);
+  });
+
+  it("partial stock reason states numbers in the same order in bn and en", () => {
+    const r = only(rankHospitals(input({
+      requirements: [req("ANTIVENOM", "CRITICAL", 5)],
+      hospitals: [hospital("h", [countable("ANTIVENOM", 2)])],
+    })));
+    const nums = (s: string) => s.match(/\d+/g);
+    expect(nums(r.reasons[0]!.bn)).toEqual(["2", "5"]);
+    expect(nums(r.reasons[0]!.en)).toEqual(["2", "5"]);
   });
 
   it("nearer hospital outranks a farther identical one", () => {
