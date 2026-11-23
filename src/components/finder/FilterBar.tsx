@@ -3,6 +3,7 @@ import type { Lang } from "@/lib/i18n";
 import { BLOOD_LABEL, finder } from "@/lib/i18n/finder";
 import { AREAS } from "@/server/finder/areas";
 import { BLOOD_GROUPS, RADIUS_OPTIONS, type FinderParams } from "@/server/finder/params";
+import type { ResourceOption } from "@/server/finder/search";
 import { fmtNum } from "./format";
 import { LocationButton } from "./LocationButton";
 import { finderHref } from "./url";
@@ -12,7 +13,15 @@ const control =
   "min-h-11 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-2 text-base dark:border-zinc-700 dark:bg-zinc-900";
 
 /** Plain GET form (works without JS); only the geolocation button is a client component. */
-export function FilterBar({ params, lang }: { params: FinderParams; lang: Lang }) {
+export function FilterBar({
+  params,
+  resourceTypes,
+  lang,
+}: {
+  params: FinderParams;
+  resourceTypes: ResourceOption[];
+  lang: Lang;
+}) {
   const usingLocation = !params.area && params.lat !== undefined && params.lng !== undefined;
 
   return (
@@ -27,6 +36,18 @@ export function FilterBar({ params, lang }: { params: FinderParams; lang: Lang }
             {BLOOD_GROUPS.map((g) => (
               <option key={g} value={g}>
                 {BLOOD_LABEL[g]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className={field}>
+          {finder.resource[lang]}
+          <select name="resource" defaultValue={params.resource ?? ""} className={control}>
+            <option value="">{finder.anyResource[lang]}</option>
+            {resourceTypes.map((t) => (
+              <option key={t.code} value={t.code}>
+                {lang === "bn" ? t.nameBn : t.nameEn}
               </option>
             ))}
           </select>

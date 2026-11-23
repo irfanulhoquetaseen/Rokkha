@@ -51,6 +51,20 @@ describe("parseFinderParams", () => {
     expect(params).toEqual({ sort: "score", page: 1 });
     expect(notices).toHaveLength(2);
   });
+  it("accepts a well-formed resource code", () => {
+    const { params, notices } = parseFinderParams({ resource: "ICU_BED" });
+    expect(params.resource).toBe("ICU_BED");
+    expect(notices).toEqual([]);
+  });
+  it("drops a malformed resource code with a bilingual notice", () => {
+    for (const bad of ["icu bed", "ICU-BED", "X".repeat(65), "<script>"]) {
+      const { params, notices } = parseFinderParams({ resource: bad });
+      expect(params.resource).toBeUndefined();
+      expect(notices).toHaveLength(1);
+      expect(notices[0].bn).toBeTruthy();
+      expect(notices[0].en).toMatch(/resource/i);
+    }
+  });
   it("takes the first value of repeated params", () => {
     expect(parseFinderParams({ page: ["2", "5"] }).params.page).toBe(2);
   });

@@ -16,6 +16,11 @@ export const finderParamsSchema = z.object({
     .regex(/^[A-Za-z0-9_-]+$/)
     .optional(),
   blood: z.enum(BLOOD_GROUPS as [BloodGroup, ...BloodGroup[]]).optional(),
+  // Shape only; searchHospitals checks it against the ResourceType table (resource types are data).
+  resource: z
+    .string()
+    .regex(/^[A-Z0-9_]{1,64}$/)
+    .optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
   area: z.string().optional(),
@@ -57,6 +62,8 @@ export function parseFinderParams(sp: SP): { params: FinderParams; notices: Bili
 
   check("condition", first(sp.condition), { bn: "অবস্থার কোড বৈধ নয়, উপেক্ষা করা হয়েছে।", en: "Invalid condition ignored." });
   check("blood", first(sp.blood), { bn: "রক্তের গ্রুপ বৈধ নয়, উপেক্ষা করা হয়েছে।", en: "Invalid blood group ignored." });
+
+  check("resource", first(sp.resource), { bn: "রিসোর্সের কোড বৈধ নয়, উপেক্ষা করা হয়েছে।", en: "Invalid resource filter ignored." });
 
   // Location: explicit lat/lng wins; else area.
   const latS = first(sp.lat);

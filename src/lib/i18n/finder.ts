@@ -16,10 +16,13 @@ export const finder = {
     bn: "অবস্থান দেওয়া হয়নি, তাই দূরত্বের সীমা ব্যবহার করা হয়নি। এলাকা বা আমার অবস্থান বেছে নিন।",
     en: "No location given, so the radius was not applied. Choose an area or use my location.",
   },
+  resourceIgnored: { bn: "এই রিসোর্সটি চেনা যায়নি, ফিল্টারটি উপেক্ষা করা হয়েছে।", en: "Unknown resource; that filter was ignored." },
   // Filters
   filters: { bn: "ফিল্টার ও সাজানো", en: "Filters & sort" },
   bloodGroup: { bn: "রোগীর রক্তের গ্রুপ", en: "Patient blood group" },
   bloodUnknown: { bn: "জানা নেই", en: "Not known" },
+  resource: { bn: "যা এখনই লাগবে", en: "Needed right now" },
+  anyResource: { bn: "যেকোনো রিসোর্স", en: "Any resource" },
   area: { bn: "এলাকা", en: "Area" },
   anyArea: { bn: "এলাকা বেছে নিন", en: "Choose an area" },
   radius: { bn: "দূরত্বের সীমা", en: "Radius" },

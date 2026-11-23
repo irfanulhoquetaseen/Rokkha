@@ -131,6 +131,42 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     expect(r.directory).toHaveLength(5);
   });
 
+  it("filters by resource: COUNTABLE needs available > 0, STATUS needs isAvailable; unknown code is ignored", async () => {
+    const all = await searchHospitals(p({ condition: "STROKE" }), NOW);
+    // Make sure at least one live hospital lacks each resource, so the filter must remove something.
+    const victim = all.results[0].hospitalId;
+    await prisma.hospitalResource.updateMany({ where: { hospitalId: victim, resourceType: { code: "ICU_BED" } }, data: { available: 0 } });
+    await prisma.hospitalResource.updateMany({ where: { hospitalId: victim, resourceType: { code: "CT_SCAN" } }, data: { isAvailable: false } });
+
+    const has = async (code: string) => {
+      const rows = await prisma.hospitalResource.findMany({
+        where: { resourceType: { code }, OR: [{ available: { gt: 0 } }, { isAvailable: true }], hospital: { liveDataEnabled: true } },
+        select: { hospitalId: true, available: true, isAvailable: true, resourceType: { select: { kind: true } } },
+      });
+      return new Set(rows.filter((r) => (r.resourceType.kind === "COUNTABLE" ? r.available > 0 : r.isAvailable)).map((r) => r.hospitalId));
+    };
+
+    for (const code of ["ICU_BED", "CT_SCAN"]) {
+      const expected = await has(code);
+      const r = await searchHospitals(p({ condition: "STROKE", resource: code }), NOW);
+      expect(r.resourceIgnored).toBe(false);
+      expect(r.total).toBe(expected.size);
+      expect(r.total).toBeLessThan(all.total);
+      expect(r.results.every((x) => expected.has(x.hospitalId))).toBe(true);
+      expect(r.results.some((x) => x.hospitalId === victim)).toBe(false);
+      expect(r.results.map((x) => x.rank)).toEqual(r.results.map((_, i) => i + 1));
+    }
+
+    const unknown = await searchHospitals(p({ condition: "STROKE", resource: "NOPE_RESOURCE" }), NOW);
+    expect(unknown.resourceIgnored).toBe(true);
+    expect(unknown.total).toBe(all.total);
+
+    // Options for the filter <select>: every resource type, in sortOrder.
+    const types = await prisma.resourceType.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true } });
+    expect(all.resourceTypes.map((t) => t.code)).toEqual(types.map((t) => t.code));
+    expect(all.resourceTypes[0]).toHaveProperty("nameBn");
+  });
+
   it("returns condition null and no results for an unknown condition", async () => {
     const r = await searchHospitals(p({ condition: "FOO" }), NOW);
     expect(r.condition).toBeNull();

@@ -7,6 +7,7 @@ export function finderHref(params: FinderParams, overrides: Overrides = {}): str
   const base: Overrides = {
     condition: params.condition,
     blood: params.blood,
+    resource: params.resource,
     // An area implies its own centre point; explicit coordinates only when no area was chosen.
     area: params.area,
     lat: params.area ? undefined : params.lat,

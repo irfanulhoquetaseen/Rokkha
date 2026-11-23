@@ -69,6 +69,19 @@ test("filter form submits as a GET and keeps the condition", async ({ page }) =>
   await expect(first.getByTestId("distance")).toContainText(/km|কিমি/);
 });
 
+test("resource filter is a labelled select carried in the GET URL; unknown code shows a notice", async ({ page }) => {
+  await page.goto("/find?condition=STROKE");
+  await page.getByLabel(finder.resource.bn).selectOption("ICU_BED");
+  await page.getByRole("button", { name: finder.apply.bn }).click();
+  await expect(page).toHaveURL(/resource=ICU_BED/);
+  await expect(page.getByTestId("hospital-card").first()).toBeVisible();
+  await expect(page.getByLabel(finder.resource.bn)).toHaveValue("ICU_BED");
+
+  await page.goto("/find?condition=STROKE&resource=NOPE_RESOURCE");
+  await expect(page.getByTestId("notice").filter({ hasText: finder.resourceIgnored.bn })).toBeVisible();
+  await expect(page.getByTestId("hospital-card").first()).toBeVisible();
+});
+
 test("empty result suggests widening the radius", async ({ page }) => {
   // Rajshahi centre + 5 km + PRIVATE: the only private hospital that close is directory-only (no live data) → no ranked results.
   await page.goto("/find?condition=HEART_ATTACK&area=rajshahi&radius=5&type=PRIVATE");

@@ -48,6 +48,7 @@ async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
   const allNotices: Bilingual[] = [...notices];
   if (params.condition && !result.condition) allNotices.push(finder.unknownCondition);
   if (result.radiusIgnored) allNotices.push(finder.radiusIgnored);
+  if (result.resourceIgnored) allNotices.push(finder.resourceIgnored);
 
   const noticeList = allNotices.length > 0 && (
     <ul className="flex flex-col gap-2">
@@ -91,7 +92,7 @@ async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
           <Call999Button lang={lang} />
         </div>
       )}
-      <FilterBar params={params} lang={lang} />
+      <FilterBar params={params} resourceTypes={result.resourceTypes} lang={lang} />
       <Results result={result} params={params} lang={lang} nowMs={nowMs} />
       <DirectoryList entries={result.directory} lang={lang} />
     </>

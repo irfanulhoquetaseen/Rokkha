@@ -29,7 +29,13 @@ export type FinderResult = {
   pageSize: typeof PAGE_SIZE;
   directory: DirectoryEntry[];
   radiusIgnored: boolean;
+  /** A well-formed `resource` code that matches no ResourceType: the filter was not applied. */
+  resourceIgnored: boolean;
+  /** Options for the resource filter, in sortOrder. */
+  resourceTypes: ResourceOption[];
 };
+
+export type ResourceOption = { code: string; nameBn: string; nameEn: string };
 
 function originOf(params: FinderParams): LatLng | null {
   return params.lat !== undefined && params.lng !== undefined ? { lat: params.lat, lng: params.lng } : null;
@@ -88,7 +94,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
   const radiusIgnored = params.radius !== undefined && origin === null;
 
   // Independent reads run concurrently; the live-hospital query only runs once a condition is known.
-  const [conditionRow, directory, compat] = await Promise.all([
+  const [conditionRow, directory, compat, resourceTypes] = await Promise.all([
     params.condition
       ? prisma.condition.findUnique({
           where: { code: params.condition },
@@ -108,13 +114,18 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
       : null,
     listDirectory(params),
     prisma.bloodCompatibility.findMany({ select: { donor: true, recipient: true } }),
+    prisma.resourceType.findMany({ orderBy: { sortOrder: "asc" }, select: { code: true, nameBn: true, nameEn: true } }),
   ]);
+  const resourceCode =
+    params.resource !== undefined && resourceTypes.some((t) => t.code === params.resource) ? params.resource : undefined;
+  const resourceIgnored = params.resource !== undefined && resourceCode === undefined;
   const empty: FinderResult = {
     condition: null, results: [], total: 0, page: params.page, pageSize: PAGE_SIZE, directory, radiusIgnored,
+    resourceIgnored, resourceTypes,
   };
   if (!conditionRow) return empty;
 
-  const hospitals = await prisma.hospital.findMany({
+  const allHospitals = await prisma.hospital.findMany({
     orderBy: { id: "asc" },
     where: {
       liveDataEnabled: true,
@@ -132,6 +143,17 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
       },
     },
   });
+
+  // Resource filter: keep hospitals that have that resource right now (stock > 0, or switched on).
+  const hospitals = resourceCode
+    ? allHospitals.filter((h) =>
+        h.resources.some(
+          (r) =>
+            r.resourceType.code === resourceCode &&
+            (r.resourceType.kind === "COUNTABLE" ? r.available > 0 : r.isAvailable),
+        ),
+      )
+    : allHospitals;
 
   // Table is donor -> recipient; the matcher wants recipient -> donors.
   const compatibleDonors = {} as Record<BloodGroup, BloodGroup[]>;
@@ -211,5 +233,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
     pageSize: PAGE_SIZE,
     directory,
     radiusIgnored,
+    resourceIgnored,
+    resourceTypes,
   };
 }
