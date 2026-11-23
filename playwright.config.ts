@@ -6,7 +6,7 @@ import { assertTestDatabaseUrl } from "./tests/support/test-db-guard";
 // dev server on port 3100 wired to the *_test database — local E2E never touches the live DB, and a
 // dev server already running on 3000 (live DB) is never reused by accident.
 const externalBaseURL = process.env.BASE_URL;
-const LOCAL_PORT = 3100;
+const LOCAL_PORT = Number(process.env.E2E_PORT ?? 3100); // per-worktree override so parallel tracks never collide
 const E2E_DIST_DIR = ".next-e2e";
 const baseURL = externalBaseURL ?? `http://localhost:${LOCAL_PORT}`;
 
