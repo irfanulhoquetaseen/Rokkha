@@ -21,7 +21,9 @@ export async function proxy(req: NextRequest) {
     return await staffGate(req, pathname);
   } catch (e) {
     if (e instanceof AppError) return notFound(req);
-    console.error("[proxy] check failed, falling through to the page guards:", e instanceof Error ? e.message : e);
+    // name/code/message only (e.g. AggregateError ECONNREFUSED has an empty message); no request data.
+    const info = e instanceof Error ? [e.name, (e as { code?: unknown }).code, e.message].filter(Boolean).join(" ") : String(e);
+    console.error("[proxy] check failed, falling through to the page guards:", info);
     return NextResponse.next();
   }
 }
