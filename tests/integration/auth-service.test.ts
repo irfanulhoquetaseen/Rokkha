@@ -130,6 +130,22 @@ describe("auth service", () => {
     expect(limited[0]).toMatchObject({ entityId: "01711111111", ip: IP });
   });
 
+  it("requests without a known client IP share one 'unknown' per-IP bucket (never unlimited)", async () => {
+    try {
+      // Defaults: 30 logins / 10 signups per IP window. Exhaust both buckets for the null-IP key.
+      for (let i = 0; i < 30; i++) loginLimiterByIp.hit("unknown");
+      for (let i = 0; i < 10; i++) signupLimiterByIp.hit("unknown");
+      const l = await errOf(login({ phone: "01711111111", password: "secret123" }, { ip: null }));
+      expect(l.code).toBe("RATE_LIMITED");
+      const s = await errOf(signup({ name: "Rahim", phone: "01711111111", password: "secret123" }, { ip: null }));
+      expect(s.code).toBe("RATE_LIMITED");
+      expect(await prisma.user.count()).toBe(0);
+    } finally {
+      loginLimiterByIp.reset("unknown");
+      signupLimiterByIp.reset("unknown");
+    }
+  });
+
   it("signup with previousToken deletes the old session (rotation)", async () => {
     const a = await signup({ name: "Rahim", phone: "01711111111", password: "secret123" }, meta);
     const b = await signup({ name: "Karim", phone: "01722222222", password: "secret123" }, { ip: IP, previousToken: a.token });

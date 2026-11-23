@@ -65,6 +65,10 @@ async function enforceLogin(result: HitResult, entityId: string, ip: string | nu
   throw rateLimited(result);
 }
 
+// A request whose client IP can't be determined still counts against a shared per-IP bucket, so a
+// missing/stripped proxy header never turns the per-IP limit off.
+const ipKey = (ip: string | null) => ip ?? "unknown";
+
 function isUniqueViolation(e: unknown): boolean {
   return typeof e === "object" && e !== null && (e as { code?: unknown }).code === "P2002";
 }
@@ -73,7 +77,7 @@ export async function signup(
   input: { name: string; phone: string; password: string },
   meta: { ip: string | null; previousToken?: string | null },
 ): Promise<AuthResult> {
-  if (meta.ip) enforce(signupLimiterByIp.hit(meta.ip));
+  enforce(signupLimiterByIp.hit(ipKey(meta.ip)));
   const data = parse(signupSchema, input);
   const passwordHash = await hashPassword(data.password);
 
@@ -102,7 +106,7 @@ export async function login(
   input: { phone: string; password: string },
   meta: { ip: string | null; previousToken?: string | null },
 ): Promise<AuthResult> {
-  if (meta.ip) await enforceLogin(loginLimiterByIp.hit(meta.ip), meta.ip, meta.ip);
+  await enforceLogin(loginLimiterByIp.hit(ipKey(meta.ip)), ipKey(meta.ip), meta.ip);
   const data = parse(loginSchema, input);
   await enforceLogin(loginLimiterByPhone.hit(data.phone), data.phone, meta.ip);
 
