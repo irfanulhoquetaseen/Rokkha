@@ -87,51 +87,51 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
   const origin = originOf(params);
   const radiusIgnored = params.radius !== undefined && origin === null;
 
-  const conditionRow = params.condition
-    ? await prisma.condition.findUnique({
-        where: { code: params.condition },
-        select: {
-          code: true,
-          nameBn: true,
-          nameEn: true,
-          requirements: {
-            orderBy: { sortOrder: "asc" },
-            select: {
-              isBlood: true, level: true, minQuantity: true,
-              resourceType: { select: { code: true, nameBn: true, nameEn: true } },
+  // Independent reads run concurrently; the live-hospital query only runs once a condition is known.
+  const [conditionRow, directory, compat] = await Promise.all([
+    params.condition
+      ? prisma.condition.findUnique({
+          where: { code: params.condition },
+          select: {
+            code: true,
+            nameBn: true,
+            nameEn: true,
+            requirements: {
+              orderBy: { sortOrder: "asc" },
+              select: {
+                isBlood: true, level: true, minQuantity: true,
+                resourceType: { select: { code: true, nameBn: true, nameEn: true } },
+              },
             },
           },
-        },
-      })
-    : null;
-
-  const directory = await listDirectory(params);
+        })
+      : null,
+    listDirectory(params),
+    prisma.bloodCompatibility.findMany({ select: { donor: true, recipient: true } }),
+  ]);
   const empty: FinderResult = {
     condition: null, results: [], total: 0, page: params.page, pageSize: PAGE_SIZE, directory, radiusIgnored,
   };
   if (!conditionRow) return empty;
 
-  const [hospitals, compat] = await Promise.all([
-    prisma.hospital.findMany({
-      orderBy: { id: "asc" },
-      where: {
-        liveDataEnabled: true,
-        ...(params.type ? { type: params.type } : {}),
-        ...(params.free ? { freeService: true } : {}),
-      },
-      select: {
-        id: true, slug: true, nameBn: true, nameEn: true, type: true, freeService: true,
-        phone: true, area: true, district: true, address: true, lat: true, lng: true,
-        resources: {
-          select: {
-            total: true, available: true, isAvailable: true, updatedAt: true,
-            resourceType: { select: { code: true, kind: true, bloodGroup: true, nameBn: true, nameEn: true } },
-          },
+  const hospitals = await prisma.hospital.findMany({
+    orderBy: { id: "asc" },
+    where: {
+      liveDataEnabled: true,
+      ...(params.type ? { type: params.type } : {}),
+      ...(params.free ? { freeService: true } : {}),
+    },
+    select: {
+      id: true, slug: true, nameBn: true, nameEn: true, type: true, freeService: true,
+      phone: true, area: true, district: true, address: true, lat: true, lng: true,
+      resources: {
+        select: {
+          total: true, available: true, isAvailable: true, updatedAt: true,
+          resourceType: { select: { code: true, kind: true, bloodGroup: true, nameBn: true, nameEn: true } },
         },
       },
-    }),
-    prisma.bloodCompatibility.findMany({ select: { donor: true, recipient: true } }),
-  ]);
+    },
+  });
 
   // Table is donor -> recipient; the matcher wants recipient -> donors.
   const compatibleDonors = {} as Record<BloodGroup, BloodGroup[]>;
