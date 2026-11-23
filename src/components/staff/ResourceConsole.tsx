@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Bilingual, ErrorBody } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
@@ -64,6 +65,7 @@ function isCurrent(v: unknown): v is Current {
 type Props = { lang: Lang; initialRows: ConsoleRow[]; nowMs: number; staleAfterMs: number };
 
 export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Props) {
+  const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [ui, setUi] = useState<Record<string, RowUi>>({});
   const [query, setQuery] = useState("");
@@ -94,6 +96,11 @@ export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Prop
         adopt(row.id, body.resource);
         patchUi(row.id, {});
         setNow(clockNow()); // "Updated just now" for the saved row
+        return;
+      }
+      if (res.status === 401) {
+        // Session expired or logged out elsewhere: log in again and come back here.
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`);
         return;
       }
       const err = body?.error;
@@ -207,9 +214,11 @@ export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Prop
                         </p>
                       </div>
                       {r.kind === "COUNTABLE" ? (
-                        <p className="shrink-0 text-right tabular-nums" aria-label={`${staff.available[lang]} / ${staff.total[lang]}`}>
+                        <p className="shrink-0 text-right tabular-nums">
+                          <span className="sr-only">{staff.available[lang]}: </span>
                           <span data-testid="available" className="text-2xl font-bold">{r.available}</span>
-                          <span className="text-zinc-600 dark:text-zinc-400"> / </span>
+                          <span aria-hidden="true" className="text-zinc-600 dark:text-zinc-400"> / </span>
+                          <span className="sr-only">, {staff.total[lang]}: </span>
                           <span data-testid="total" className="text-zinc-600 dark:text-zinc-400">{r.total}</span>
                         </p>
                       ) : (

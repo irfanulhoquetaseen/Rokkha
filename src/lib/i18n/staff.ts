@@ -7,7 +7,7 @@ export const staff = {
     en: "Keep beds, blood, medicines and services up to date here. Patients see every change immediately.",
   },
   groupBeds: { bn: "বেড ও যন্ত্রপাতি", en: "Beds & equipment" },
-  groupBlood: { bn: "রক্ত ও ওষুধ", en: "Blood & medicines" },
+  groupBlood: { bn: "রক্ত, ওষুধ ও ব্যবহার্য সামগ্রী", en: "Blood, medicines & consumables" },
   groupServices: { bn: "সেবা ও বিশেষজ্ঞ", en: "Services & specialists" },
   search: { bn: "নাম দিয়ে খুঁজুন", en: "Search by name" },
   filter: { bn: "ফিল্টার", en: "Filter" },
