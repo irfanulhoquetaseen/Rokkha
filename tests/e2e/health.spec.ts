@@ -9,8 +9,19 @@ test("health endpoint reports the database is up", async ({ request }) => {
   expect(Number.isNaN(Date.parse(body.time))).toBe(false);
 });
 
-test("home page shows API health and a live Socket.io connection", async ({ page }) => {
-  await page.goto("/");
+test("status page shows API health and a live Socket.io connection", async ({ page }) => {
+  await page.goto("/status");
   await expect(page.getByTestId("api-health")).toHaveText("ok (db up)");
   await expect(page.getByTestId("socket-status")).toHaveText("connected", { timeout: 15_000 });
+});
+
+test("DEMO DATA banner is visible at the very top of every page", async ({ page }) => {
+  for (const path of ["/", "/login", "/signup", "/status"]) {
+    await page.goto(path);
+    // First visible element in <body> (Next injects hidden helper nodes, so skip those).
+    const first = page.locator("body > :visible").first();
+    await expect(first).toHaveText("DEMO DATA — not real hospital availability");
+    const box = await first.boundingBox();
+    expect(box?.y).toBe(0);
+  }
 });
