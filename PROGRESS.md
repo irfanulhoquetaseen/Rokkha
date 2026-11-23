@@ -20,7 +20,8 @@ P1 + P2 + P3: **done** (24 Nov 2026). Next: **P4 reservation engine (A05)**.
 - Bangla first-aid text needs a native-speaker proofread (content is sourced and reviewed for fidelity, translation not proofread by a native speaker).
 - `npm audit`: 3 high in `effect` (Prisma 7 CLI config loader; dev/CLI only). Accepted.
 - Prisma CLI "update available → 8.0.0-rc" banner: ignore.
-- Lighthouse can't run inside agent sandboxes; measured by the controller on the live URL (see docs/reports/P1-P3.md).
+- Lighthouse is not yet measured on live: the agent sandbox blocks downloading/running it. Run: `npx lighthouse "https://web-production-3fb89dc8.up.railway.app/find?condition=STROKE" --only-categories=performance,accessibility --form-factor=mobile --view`. (Playwright-throttled local measurement: LCP ≈ 1.7 s, CLS 0, ~141 KB JS.)
+- Seeded demo data goes stale (> 30 min) because nothing updates it between demos. Refresh right before judging with `SEED_RESET_STOCK=1 npm run db:seed` (only while no holds are active), or add an automatic refresh in P4/P7.
 - Directory section lists only directory-only hospitals and is unpaginated (5 rows); full "browse all hospitals" directory is tracked for P6.
 - Finder ranks all live hospitals in memory per request (fine at 20 live hospitals; document scale assumption in P7).
 
