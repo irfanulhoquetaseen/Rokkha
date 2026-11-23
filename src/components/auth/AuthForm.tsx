@@ -85,13 +85,15 @@ export function AuthForm({ mode, lang, next }: { mode: Mode; lang: Lang; next: s
         router.refresh();
         return;
       }
-      const body = (await res.json().catch(() => null)) as ErrorBody | null;
-      if (body?.error.code === "VALIDATION_ERROR") {
+      // Any JSON may come back (or none, e.g. an HTML proxy error page): never assume the error shape.
+      const body = (await res.json().catch(() => null)) as Partial<ErrorBody> | null;
+      if (body?.error?.code === "VALIDATION_ERROR") {
         const mapped = fieldErrorsFromDetails(mode, body.error.details);
         setFieldErrors(mapped);
         focusFirstInvalid(mapped);
       }
-      setServerError(body?.error.message ?? common.retry);
+      const message = body?.error?.message;
+      setServerError(typeof message?.bn === "string" && typeof message.en === "string" ? message : common.retry);
     } catch {
       setServerError(auth.networkError);
     }
