@@ -175,7 +175,10 @@ describe("GET /api/reservations/:id", () => {
     const r = await makeHeld({ user: citizen, hospitalResourceId: hA.resources.ICU_BED!.id });
     const own = await getOne(get(citizen), ctx("reservationId", r.id));
     expect(own.status).toBe(200);
-    expect((await own.json()).reservation).toMatchObject({ id: r.id, status: "HELD" });
+    const ownBody = await own.json();
+    expect(ownBody.reservation).toMatchObject({ id: r.id, status: "HELD" });
+    // Server clock for the tracker countdown (a cached page's render time can be stale).
+    expect(Math.abs(Date.parse(ownBody.serverNow) - Date.now())).toBeLessThan(5_000);
     expect((await getOne(get(admin), ctx("reservationId", r.id))).status).toBe(200);
 
     const foreign = await getOne(get(other), ctx("reservationId", r.id));

@@ -8,9 +8,13 @@ export type ApiResult<T> =
 const isErrorBody = (v: unknown): v is ErrorBody =>
   typeof v === "object" && v !== null && typeof (v as ErrorBody).error?.code === "string";
 
+/** A request that hangs this long (dead mobile link) is treated as a network failure. */
+export const REQUEST_TIMEOUT_MS = 15_000;
+
 /**
  * Tiny JSON client for the app's own API (same origin, so the browser sends the session cookie and
- * Origin header). Never throws: a dropped connection is `{ ok: false, network: true }`, and a non-JSON
+ * Origin header). Never throws: a dropped or timed-out connection is `{ ok: false, network: true }` (the
+ * caller keeps its Idempotency-Key, so a retry is safe), and a non-JSON
  * or foreign-shaped error body becomes INTERNAL with the HTTP status.
  */
 export async function requestJson<T>(
@@ -20,17 +24,30 @@ export async function requestJson<T>(
   opts: { idempotencyKey?: string } = {},
 ): Promise<ApiResult<T>> {
   let res: Response;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
   try {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
     res = await fetch(url, {
-      method, headers, cache: "no-store", body: body === undefined ? undefined : JSON.stringify(body),
+      method, headers, cache: "no-store", signal: abort.signal,
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
+    clearTimeout(timer);
     return { ok: false, network: true };
   }
-  const json: unknown = await res.json().catch(() => null);
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch {
+    // Body cut off by the timeout = network failure; anything else is just a non-JSON body.
+    if (abort.signal.aborted) return { ok: false, network: true };
+    json = null;
+  } finally {
+    clearTimeout(timer);
+  }
   if (res.ok) return { ok: true, status: res.status, data: json as T };
   if (isErrorBody(json)) return { ok: false, status: res.status, error: json.error };
   return {

@@ -41,6 +41,9 @@ const REFETCH_RETRIES = 5;
 /** State updater that never goes back to an older version of the reservation. */
 const newer = (next: TrackerReservation) => (cur: TrackerReservation) => (next.version >= cur.version ? next : cur);
 const DISARM_MS = 5_000;
+/** A confirming tap this soon after arming is the 2nd half of an accidental double tap: ignored. */
+const CONFIRM_GUARD_MS = 600;
+type OneResponse = { reservation: TrackerReservation; serverNow?: string };
 
 /**
  * Live part of the tracker: status, a countdown to expiresAt (server-clock corrected), cancel with an
@@ -49,7 +52,12 @@ const DISARM_MS = 5_000;
  */
 export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReservation; serverNowMs: number; lang: Lang }) {
   const [r, setR] = useState(initial);
+  // serverNowMs is only for the first (server/hydration) render: a page restored by Back/Forward from the
+  // router cache carries an old render time. After mount the clock is the device clock, corrected by the
+  // server time from a fresh GET as soon as it arrives.
   const [nowMs, setNowMs] = useState(serverNowMs);
+  const offsetRef = useRef(0);
+  const armedAt = useRef(0);
   const [armed, setArmed] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<Bilingual | null>(null);
@@ -59,13 +67,29 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
   const leftMs = new Date(r.expiresAt).getTime() - nowMs;
   const timeUp = held && leftMs <= 0;
 
-  // Tick against the server clock (a phone's clock may be wrong).
+  // On every mount (incl. Back/Forward): fetch the live reservation and the server clock (a phone's clock may be wrong).
+  useEffect(() => {
+    let stop = false;
+    const tick = () => setNowMs(Date.now() + offsetRef.current);
+    const first = setTimeout(tick, 0); // device clock right away, never the stale render time
+    void getJson<OneResponse>(`/api/reservations/${encodeURIComponent(r.id)}`).then((res) => {
+      if (stop || !res.ok) return;
+      const server = res.data.serverNow ? Date.parse(res.data.serverNow) : NaN;
+      if (Number.isFinite(server)) offsetRef.current = server - Date.now();
+      setR(newer(res.data.reservation));
+      tick();
+    });
+    return () => {
+      stop = true;
+      clearTimeout(first);
+    };
+  }, [r.id]);
+
   useEffect(() => {
     if (!held) return;
-    const offset = serverNowMs - Date.now();
-    const id = setInterval(() => setNowMs(Date.now() + offset), 1000);
+    const id = setInterval(() => setNowMs(Date.now() + offsetRef.current), 1000);
     return () => clearInterval(id);
-  }, [held, serverNowMs]);
+  }, [held]);
 
   // Time is up: the server decides (lazy expiry on read). Retry briefly if it still says HELD.
   useEffect(() => {
@@ -74,7 +98,7 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
     let tries = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
-      const res = await getJson<{ reservation: TrackerReservation }>(`/api/reservations/${encodeURIComponent(r.id)}`);
+      const res = await getJson<OneResponse>(`/api/reservations/${encodeURIComponent(r.id)}`);
       if (stop) return;
       if (res.ok) setR(newer(res.data.reservation));
       if ((!res.ok || res.data.reservation.status === "HELD") && ++tries < REFETCH_RETRIES) timer = setTimeout(poll, 3000);
@@ -95,10 +119,12 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
 
   async function onCancel() {
     if (!armed) {
+      armedAt.current = Date.now();
       setArmed(true);
       setError(null);
       return;
     }
+    if (Date.now() - armedAt.current < CONFIRM_GUARD_MS) return; // double tap, not a confirmation
     if (inFlight.current) return;
     inFlight.current = true;
     setCancelling(true);
@@ -108,7 +134,7 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
     } else if ("error" in res && res.status < 500) {
       setError(res.error.message);
       // e.g. INVALID_TRANSITION (it expired or staff acted meanwhile): show the real status.
-      const fresh = await getJson<{ reservation: TrackerReservation }>(`/api/reservations/${encodeURIComponent(r.id)}`);
+      const fresh = await getJson<OneResponse>(`/api/reservations/${encodeURIComponent(r.id)}`);
       if (fresh.ok) setR(newer(fresh.data.reservation));
     } else {
       setError(t.networkProblem);

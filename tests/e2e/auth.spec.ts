@@ -131,3 +131,20 @@ test("GET /api/auth/me reflects the session cookie", async ({ page, baseURL }) =
   const me = (await (await page.request.get("/api/auth/me")).json()) as { user: { name: string; role: string } };
   expect(me.user).toMatchObject({ name, role: "CITIZEN" });
 });
+
+test.describe("before hydration (no JavaScript)", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("submitting the login form never puts credentials in the URL", async ({ page }) => {
+    const phone = uniquePhone();
+    await page.goto("/login");
+    await page.getByLabel(auth.phone.bn).fill(phone);
+    await page.getByLabel(auth.password.bn).fill(PASSWORD);
+    const nav = page.waitForEvent("framenavigated");
+    await page.getByRole("button", { name: auth.loginSubmit.bn }).click();
+    await nav;
+    expect(page.url()).not.toContain(PASSWORD);
+    expect(page.url()).not.toContain(phone);
+    expect(page.url()).not.toContain("password=");
+  });
+});

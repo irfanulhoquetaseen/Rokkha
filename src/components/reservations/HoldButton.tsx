@@ -73,8 +73,11 @@ export function HoldButton(props: HoldButtonProps) {
       return;
     }
     if (!("error" in res) || res.status >= 500) {
-      // Network drop or server failure: keep the key, so the retry is the same action.
+      // Network drop, timeout or server failure: keep the key, so the retry is the same action.
       setFailure({ message: t.networkProblem });
+    } else if (res.error.code === "RATE_LIMITED") {
+      // Not processed: keep the key too, and ask to try again a little later.
+      setFailure({ message: res.error.message });
     } else {
       keyRef.current = null; // definitive answer: the next click is a new action
       const { code, message, details } = res.error;

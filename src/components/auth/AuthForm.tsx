@@ -118,7 +118,9 @@ export function AuthForm({ mode, lang, next }: { mode: Mode; lang: Lang; next: s
   };
 
   return (
-    <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    // method/action only matter for a tap before hydration: the browser then POSTs to this page instead
+    // of a native GET that would put the phone number and password in the URL (history, server logs).
+    <form ref={formRef} method="post" action={`/${mode}`} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       {serverError && (
         <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
           {serverError[lang]}

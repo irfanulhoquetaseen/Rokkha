@@ -6,5 +6,6 @@ import { getMyReservation } from "@/server/reservations/queries";
 export const GET = apiHandler(async (req: Request, ctx: { params: Promise<{ reservationId: string }> }) => {
   const { reservationId } = await ctx.params;
   const reservation = await getMyReservation(await getUserFromRequest(req), reservationId);
-  return NextResponse.json({ reservation }, { headers: { "Cache-Control": "no-store" } });
+  // serverNow: the tracker's countdown clock (a page restored from the router cache has a stale render time).
+  return NextResponse.json({ reservation, serverNow: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } });
 });

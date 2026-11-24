@@ -205,6 +205,53 @@ test("double click creates one hold", async ({ page }) => {
   expect(page.url()).toContain(holds[0]!.id);
 });
 
+const BN = "০১২৩৪৫৬৭৮৯";
+/** Seconds left from a "mm:ss" countdown (Bangla or ASCII digits). */
+async function secondsLeft(page: Page): Promise<number> {
+  const text = (await page.getByTestId("countdown").textContent())!.replace(/[০-৯]/g, (d) => String(BN.indexOf(d)));
+  const m = /^(\d{2}):(\d{2})$/.exec(text.trim());
+  expect(m, `countdown "${text}"`).not.toBeNull();
+  return Number(m![1]) * 60 + Number(m![2]);
+}
+
+async function openOwnHold(page: Page): Promise<string> {
+  await login(page.request, ACCOUNTS[project()].citizen);
+  const dhanmondiId = await hospitalIdBySlug(citizen, DHANMONDI.slug);
+  const res = await reserve(citizen, dhanmondiId, "GENERAL_BED");
+  expect(res.status()).toBe(201);
+  const { reservation } = (await res.json()) as { reservation: { id: string } };
+  await page.goto(`/reservations/${reservation.id}`);
+  await expect(page.getByTestId("reservation-status")).toHaveAttribute("data-status", "HELD");
+  return reservation.id;
+}
+
+test("countdown is not inflated after Back (router cache)", async ({ page }) => {
+  await openOwnHold(page);
+  await page.waitForTimeout(2_000);
+  const before = await secondsLeft(page);
+  await page.getByRole("link", { name: new RegExp(t.myReservations.bn) }).last().click();
+  await expect(page).toHaveURL(/\/reservations$/);
+  await page.waitForTimeout(4_000);
+  await page.goBack();
+  await expect(page.getByTestId("countdown")).toBeVisible();
+  // ≥ 4 s passed: the restored page must show less time, never the old render's value.
+  await expect.poll(() => secondsLeft(page), { timeout: 3_000 }).toBeLessThanOrEqual(before - 3);
+  expect(await secondsLeft(page)).toBeLessThanOrEqual(before);
+});
+
+test("an accidental double tap on Cancel keeps the hold", async ({ page }) => {
+  await openOwnHold(page);
+  const cancel = page.getByTestId("cancel-button");
+  await cancel.dblclick();
+  await expect(cancel).toHaveText(t.tapAgainToCancel.bn);
+  await page.waitForTimeout(1_000);
+  await expect(page.getByTestId("reservation-status")).toHaveAttribute("data-status", "HELD");
+  expect(await activeHolds(citizen)).toHaveLength(1);
+  // A deliberate second tap still cancels.
+  await cancel.click();
+  await expect(page.getByTestId("reservation-status")).toHaveAttribute("data-status", "CANCELLED");
+});
+
 test("foreign tracker is 404", async ({ page }) => {
   const dhanmondiId = await hospitalIdBySlug(arranger, DHANMONDI.slug);
   const res = await reserve(arranger, dhanmondiId, "GENERAL_BED");
