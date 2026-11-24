@@ -361,7 +361,12 @@ test("offline then online recovers", async ({ page, browser }) => {
   // offline until A's snapshot refetches have come back: the refetch is the ONLY way A can recover.
   let dropEvents = false;
   let dropped = 0;
+  // Over TLS (the live site) Chromium may instead cut the socket while offline: then the server never
+  // sends A those events at all, and the new socket opened after the outage proves it.
+  let opened = 0;
+  let openedWhenOffline = 0;
   await page.context().routeWebSocket(/\/socket\.io\//, (ws) => {
+    opened++;
     const server = ws.connectToServer();
     ws.onMessage((m) => server.send(m));
     server.onMessage((m) => {
@@ -399,6 +404,7 @@ test("offline then online recovers", async ({ page, browser }) => {
   await mark(finderPage);
 
   dropEvents = true;
+  openedWhenOffline = opened;
   await page.context().setOffline(true);
   await expect(page.getByTestId("reconnecting-banner")).toBeVisible();
   await expect(finderPage.getByTestId("reconnecting-banner")).toBeVisible();
@@ -424,12 +430,13 @@ test("offline then online recovers", async ({ page, browser }) => {
   await page.context().setOffline(false);
   await Promise.all([trackerRefetch, finderRefetch]);
   dropEvents = false;
-  expect(dropped, "live events to A were lost").toBeGreaterThan(0);
+  const reconnected = opened > openedWhenOffline;
+  expect(dropped > 0 || reconnected, "live events to A were lost (frames dropped or socket cut)").toBe(true);
   await expect(page.getByTestId("reconnecting-banner")).toHaveCount(0, { timeout: RECOVER_MS });
   await expect(finderPage.getByTestId("reconnecting-banner")).toHaveCount(0, { timeout: RECOVER_MS });
   await expect(count).toHaveText(fmtNum(before - 2, "bn"), { timeout: RECOVER_MS });
   await expect(status).toHaveAttribute("data-status", "REJECTED", { timeout: RECOVER_MS });
   await notReloaded(page);
   await notReloaded(finderPage);
-  test.info().annotations.push({ type: "events-dropped-while-offline", description: String(dropped) });
+  test.info().annotations.push({ type: "events-dropped-while-offline", description: `${dropped} dropped, socket ${reconnected ? "cut and reopened" : "survived"}` });
 });
