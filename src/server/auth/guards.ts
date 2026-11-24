@@ -8,8 +8,15 @@ import type { SessionUser } from "@/server/auth/session";
 // reveal that the resource exists; each one is written to the audit log as AUTHZ_DENIED.
 // Anonymous requests get UNAUTHENTICATED and are not audited (no actor, would only add noise).
 
+/** Longest entityId written to the audit log: ids come from URL segments an attacker controls. */
+const MAX_AUDIT_ENTITY_ID = 64;
+
 async function deny(user: SessionUser, entityType: string, entityId: string | null, reason: string): Promise<never> {
-  await audit({ actorUserId: user.id, action: "AUTHZ_DENIED", entityType, entityId, after: { reason, role: user.role } });
+  await audit({
+    actorUserId: user.id, action: "AUTHZ_DENIED", entityType,
+    entityId: entityId === null ? null : entityId.slice(0, MAX_AUDIT_ENTITY_ID),
+    after: { reason, role: user.role },
+  });
   throw new AppError("NOT_FOUND");
 }
 

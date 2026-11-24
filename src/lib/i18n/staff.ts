@@ -37,6 +37,25 @@ export const staff = {
   reload: { bn: "নতুন মান নিন", en: "Reload" },
   reapply: { bn: "আমারটা আবার দিন", en: "Re-apply" },
   networkError: { bn: "সংযোগে সমস্যা, আবার চেষ্টা করুন", en: "Connection problem, please try again" },
+  // --- Reservation queue (Task 8) ---
+  queueTitle: { bn: "রিজার্ভেশন সারি", en: "Reservation queue" },
+  queueSearch: { bn: "নাম, ফোন বা রিজার্ভেশন আইডি দিয়ে খুঁজুন", en: "Search by name, phone or reservation ID" },
+  queueStatus: { bn: "অবস্থা", en: "Status" },
+  queueSort: { bn: "সাজান", en: "Sort" },
+  statusActive: { bn: "সক্রিয়", en: "Active" },
+  statusAll: { bn: "সব", en: "All" },
+  sortExpires: { bn: "মেয়াদ আগে শেষ হবে", en: "Expires soonest" },
+  sortNewest: { bn: "নতুন আগে", en: "Newest" },
+  sortOldest: { bn: "পুরনো আগে", en: "Oldest" },
+  queueEmpty: { bn: "এই খোঁজ/ফিল্টারে কোনো রিজার্ভেশন নেই", en: "No reservations match this search/filter" },
+  expiresIn: { bn: "মেয়াদ শেষ হবে", en: "Expires in" },
+  checkIn: { bn: "চেক-ইন করুন", en: "Check in" },
+  reject: { bn: "প্রত্যাখ্যান", en: "Reject" },
+  complete: { bn: "সম্পন্ন করুন", en: "Complete" },
+  rejectReason: { bn: "প্রত্যাখ্যানের কারণ (কমপক্ষে ৩ অক্ষর)", en: "Reason for rejecting (at least 3 characters)" },
+  rejectSubmit: { bn: "প্রত্যাখ্যান নিশ্চিত করুন", en: "Confirm reject" },
+  working: { bn: "হচ্ছে…", en: "Working…" },
+  loading: { bn: "লোড হচ্ছে…", en: "Loading…" },
 } as const satisfies Record<string, Bilingual>;
 
 /** Strings with a number inside. */

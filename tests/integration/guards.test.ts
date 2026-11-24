@@ -62,6 +62,15 @@ describe("authorization guards", () => {
     expect(row).toMatchObject({ actorUserId: staffA.id, entityType: "Hospital", entityId: hB });
   });
 
+  it("AUTHZ_DENIED audit truncates an attacker-controlled entityId to 64 chars", async () => {
+    const huge = "x".repeat(5000);
+    expect(await codeOf(requireHospitalAccess(staffA, huge))).toBe("NOT_FOUND");
+    expect(await codeOf(requireReservationOwner(citizen, huge))).toBe("NOT_FOUND");
+    const rows = await prisma.auditLog.findMany({ where: { action: "AUTHZ_DENIED" } });
+    expect(rows).toHaveLength(2);
+    for (const r of rows) expect(r.entityId).toBe("x".repeat(64));
+  });
+
   it("requireHospitalAccess: admin passes any; citizen and null denied", async () => {
     await expect(requireHospitalAccess(admin, hA)).resolves.toBe(admin);
     await expect(requireHospitalAccess(admin, hB)).resolves.toBe(admin);

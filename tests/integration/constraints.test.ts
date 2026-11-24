@@ -33,6 +33,17 @@ function resv(b: Awaited<ReturnType<typeof seedBasics>>, key: string, over: Reco
 describe("DB constraints", () => {
   beforeEach(resetDb);
 
+  it("has the reservation queue / list sort indexes", async () => {
+    const rows = await prisma.$queryRaw<{ indexname: string }[]>`
+      SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'Reservation'`;
+    const names = rows.map((r) => r.indexname);
+    expect(names).toEqual(expect.arrayContaining([
+      "Reservation_hospitalId_status_expiresAt_idx",
+      "Reservation_hospitalId_createdAt_idx",
+      "Reservation_userId_createdAt_idx",
+    ]));
+  });
+
   it("rejects available below zero", async () => {
     const b = await seedBasics();
     await expect(

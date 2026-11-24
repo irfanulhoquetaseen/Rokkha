@@ -12,6 +12,7 @@ P1 + P2 + P3: **done** (24 Nov 2026). Next: **P4 reservation engine (A05)**.
 - **P2** Staff console `/staff`: own-hospital resources grouped, +/−, Set, status switches, search/filter (low/stale), optimistic concurrency (version CAS → 409 with current values → "Another staff member changed this" Reload / Re-apply), `STOCK_CHANGE` audit old→new; `proxy.ts` gives real 307/404 status codes. Reservation queue moved to P4 (needs the state machine).
 - **P3** Matching engine (pure, unit-tested): CRITICAL/PREFERRED weights, blood resolved by recipient group (unknown → O− only), stale penalty, Haversine distance, score 0–100, rank, bn/en reasons. Public Finder (no login): 8 condition buttons, blood group, area or GPS, radius, govt/private, free only, resource, sort (score/distance/freshness), pagination, notices, empty state; first-aid card (do's/don'ts, Call 999, source link, disclaimer); "Unverified — call before going" directory section.
 - **P4 Task 7** Citizen UI: hold buttons on Finder cards (per-result `holdable`: countable requirement stock + best compatible blood row), login round-trip, sold-out panel with alternatives, LIMIT_REACHED message, double-click-safe idempotency key; `/reservations/[id]` tracker (server-clock countdown, inline two-tap cancel, timeline, first-aid link) and `/reservations` list; proxy gives real 307/404.
+- **P4 Task 8** Staff reservation queue under the resource console (first page server-rendered): debounced search (name/phone/id), status filter (Active/Held/Arrived/Completed/Rejected/Cancelled/Expired/All), sort (expires soonest/newest/oldest), prev/next; per row name + phone, resource × qty, status badge, countdown; HELD → Check in / Reject (reason ≥ 3 chars, submit disabled until valid), ARRIVED → Complete; INVALID_TRANSITION shows the bn/en message and refetches. Rows never regress to an older `version` (a list GET racing a transition). Action buttons disabled until hydrated. Index migration `p4_reservation_sort_indexes`; AUTHZ_DENIED `entityId` truncated to 64 chars. Staff E2E restores COUNTABLE rows by inverse `adjust` of the net delta (409 → retry), STATUS rows by `status`.
 
 ## Next
 - **P4** reservation engine (A05) + state machine + expiry sweeper + staff reservation queue (check-in / reject / complete).
@@ -31,7 +32,7 @@ P1 + P2 + P3: **done** (24 Nov 2026). Next: **P4 reservation engine (A05)**.
 - `SEED_RESET_STOCK=1` must subtract active HELD/ARRIVED quantities (or refuse while holds exist). Until then: use it only before a demo with no active holds.
 - Add FK `Reservation.userId → User`.
 - Expiry sweeper (on boot) must tolerate a fresh/unmigrated DB (E2E dev server boots before global-setup migrates).
-- Staff E2E restore should use inverse `adjust` once reservations change stock concurrently.
+- ~~Staff E2E restore should use inverse `adjust`~~ (done in Task 8).
 
 ## Decisions log
 - 24 Nov: **Prisma 7.10.1** (latest stable), not 8.0.0-rc.
@@ -48,3 +49,4 @@ P1 + P2 + P3: **done** (24 Nov 2026). Next: **P4 reservation engine (A05)**.
 - 24 Nov: Unknown patient blood group counts only O− stock (universal red-cell donor).
 - 24 Nov: First-aid sources: IFRC International First Aid Guidelines 2020 (page-anchored) for stroke, heart attack, trauma, breathing, pregnancy; WHO fact sheets for dengue, snakebite, rabies. Trauma positioning keyed to *suspected* spinal injury.
 - 24 Nov: `SEED_RESET_STOCK` is opt-in; default re-seed never touches stock.
+- 24 Nov: Staff queue strings live in `src/lib/i18n/staff.ts` (Task 8 brief) rather than `reservations.ts`; status labels reuse `reservations.status_*`.

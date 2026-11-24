@@ -239,6 +239,10 @@ model Reservation {
   @@index([userId, status])
   @@index([hospitalId, status])
   @@index([status, expiresAt])
+  // Staff queue (filter by status, sort by expiry/creation) and "my reservations" (newest first).
+  @@index([hospitalId, status, expiresAt])
+  @@index([hospitalId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model ReservationEvent {
