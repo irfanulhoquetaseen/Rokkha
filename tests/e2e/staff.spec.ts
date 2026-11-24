@@ -53,27 +53,33 @@ async function apiRow(page: Page, hospitalId: string, code: string): Promise<Api
 const hospitalIdOf = (page: Page) => new URL(page.url()).pathname.split("/").pop()!;
 
 // The suite must be idempotent against ANY database (local test DB or the live URL): every test
-// records the rows it touches and afterEach puts them back via the versioned PATCH API.
-const toRestore: { page: Page; hospitalId: string; original: ApiRow }[] = [];
-async function remember(page: Page, code: string): Promise<ApiRow> {
+// records the rows it touches and afterEach undoes exactly what the test did via the versioned PATCH API.
+// COUNTABLE rows are restored by the inverse `adjust` of the net delta this test applied — never an
+// absolute `set`, which would wipe out holds/releases other specs made on the same row meanwhile.
+// STATUS rows (only ever touched by this project) are restored with `status`.
+type Touched = { page: Page; hospitalId: string; original: ApiRow; net: number };
+const toRestore: Touched[] = [];
+async function remember(page: Page, code: string): Promise<Touched> {
   const hospitalId = hospitalIdOf(page);
-  const original = await apiRow(page, hospitalId, code);
-  toRestore.push({ page, hospitalId, original });
-  return original;
+  const touched: Touched = { page, hospitalId, original: await apiRow(page, hospitalId, code), net: 0 };
+  toRestore.push(touched);
+  return touched;
 }
 
+const RESTORE_ATTEMPTS = 5;
 test.afterEach(async () => {
-  for (const { page, hospitalId, original: o } of toRestore.splice(0)) {
-    for (let attempt = 0; attempt < 3; attempt++) {
+  for (const { page, hospitalId, original: o, net } of toRestore.splice(0)) {
+    if (o.kind === "COUNTABLE" && net === 0) continue;
+    for (let attempt = 0; attempt < RESTORE_ATTEMPTS; attempt++) {
       const now = await apiRow(page, hospitalId, o.code);
-      if (now.available === o.available && now.total === o.total && now.isAvailable === o.isAvailable) break;
-      const change = o.kind === "STATUS"
-        ? { op: "status", isAvailable: o.isAvailable }
-        : { op: "set", available: o.available, total: o.total };
+      if (o.kind === "STATUS" && now.isAvailable === o.isAvailable) break;
+      const change = o.kind === "STATUS" ? { op: "status", isAvailable: o.isAvailable } : { op: "adjust", delta: -net };
       const res = await page.request.patch(`/api/staff/resources/${o.id}`, {
         data: { version: now.version, change }, headers: { Origin: origin() },
       });
-      if (res.ok()) break; // 409 → re-read the version and retry
+      if (res.ok()) break;
+      // 409 = someone else (a hold, the other project) bumped the version: re-read and retry.
+      expect(res.status(), `restore ${o.code}: ${await res.text()}`).toBe(409);
     }
   }
 });
@@ -107,12 +113,14 @@ test("staff logs in, lands on own hospital, and a step persists after reload", a
   await expect(page).toHaveURL(/\/staff\/hospitals\/[^/]+$/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { level: 1 })).toContainText(DHANMONDI.nameBn);
 
-  const original = await remember(page, code);
+  const touched = await remember(page, code);
+  const { original } = touched;
   const { button, delta } = stepFor(original);
   const r = row(page, code);
   await expect(r.getByTestId("available")).toHaveText(String(original.available));
   await stepButton(r, button).click();
   await expect(r.getByTestId("available")).toHaveText(String(original.available + delta));
+  touched.net += delta;
   await expect(r).toHaveAttribute("aria-busy", "false");
 
   await page.reload();
@@ -125,7 +133,7 @@ test("toggling a status switch persists after reload", async ({ page }, info) =>
   await page.goto("/staff");
   await expect(page).toHaveURL(/\/staff\/hospitals\/[^/]+$/);
 
-  const original = await remember(page, code);
+  const { original } = await remember(page, code);
   const sw = row(page, code).getByRole("switch");
   await expect(sw).toHaveAttribute("aria-checked", String(original.isAvailable));
   await sw.click();
@@ -171,7 +179,8 @@ test("stale page gets the conflict panel; Reload adopts the other page's value",
   await expect(page).toHaveURL(/\/staff\/hospitals\/[^/]+$/);
   await expect(pageB).toHaveURL(/\/staff\/hospitals\/[^/]+$/);
 
-  const original = await remember(page, code);
+  const touched = await remember(page, code);
+  const { original } = touched;
   const { button, delta } = stepFor(original);
   const expected = String(original.available + delta);
   const a = row(page, code);
@@ -181,6 +190,7 @@ test("stale page gets the conflict panel; Reload adopts the other page's value",
 
   await stepButton(a, button).click();
   await expect(a.getByTestId("available")).toHaveText(expected);
+  touched.net += delta;
 
   // Page B still holds the old version.
   await stepButton(b, button).click();
