@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import next from "next";
 import { attachSocketServer } from "@/server/realtime/io";
+import { startExpirySweeper } from "@/server/reservations/sweeper";
 
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -20,12 +21,17 @@ async function main() {
   // Next.js and Socket.io share ONE port. Socket.io only claims requests under /socket.io.
   const io = attachSocketServer(httpServer);
 
+  // Expiry sweeper: once now (recovers holds that went overdue while the server was down),
+  // then every 30 s. Started after listen; a DB error (e.g. unmigrated) is logged, not fatal.
+  let sweeper: { stop(): void } | null = null;
   httpServer.listen(port, hostname, () => {
     console.log(`> JibonSetu ready on http://${hostname}:${port} (${dev ? "development" : "production"})`);
+    sweeper = startExpirySweeper();
   });
 
   const shutdown = (signal: string) => {
     console.log(`> ${signal} received, shutting down`);
+    sweeper?.stop();
     void io.close();
     httpServer.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10_000).unref();

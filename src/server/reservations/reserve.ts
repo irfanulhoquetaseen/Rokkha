@@ -11,7 +11,7 @@ import { findAlternatives, type Alternative } from "./alternatives";
 import { ACTIVE_STATUSES, HOLD_MINUTES, MAX_ACTIVE_TOTAL } from "./constants";
 import { idempotencyKeySchema, requestHash, reserveBodySchema, type ParsedReserveBody, type ReserveBody } from "./schemas";
 import { readStock, takeStock, type StockSnapshot } from "./stock";
-import { expireReservation } from "./transition";
+import { expireOverdue } from "./sweeper";
 import { loadReservationView, type ReservationView } from "./view";
 
 export type ReserveResult = { reservation: ReservationView; replayed: boolean };
@@ -37,26 +37,6 @@ const sameType = (reservationId: string) =>
   new AppError("LIMIT_REACHED", t.limitSameType, { reason: "SAME_TYPE", reservationId });
 
 /**
- * Expires this user's overdue holds, each in its own short transaction (published after each
- * commit), BEFORE the reserve transaction. Returning stock locks that stock row; doing it inside
- * the reserve transaction (which then locks a second stock row) could deadlock two users whose
- * overdue holds sit on each other's target rows.
- */
-async function expireOverdueHolds(userId: string, now: Date): Promise<void> {
-  const overdue = await prisma.reservation.findMany({
-    where: { userId, status: "HELD", expiresAt: { lte: now } }, select: { id: true },
-  });
-  for (const { id } of overdue) {
-    try {
-      await expireReservation(id, now);
-    } catch (e) {
-      // The sweeper (or another transition) already moved it — nothing to return.
-      if (!(e instanceof AppError && e.code === "INVALID_TRANSITION")) throw e;
-    }
-  }
-}
-
-/**
  * Holds `quantity` of a countable resource for 30 minutes.
  * First the user's overdue holds are expired (own short transactions). Then ONE transaction:
  *  1. per-user advisory lock (a user can't race themselves; idempotency + limits become serial per user),
@@ -79,7 +59,11 @@ export async function reserve(
 
   let outcome: Outcome = { kind: "overdueSameType" };
   for (let attempt = 0; attempt < 2 && outcome.kind === "overdueSameType"; attempt++) {
-    await expireOverdueHolds(u.id, now);
+    // Expire this user's overdue holds first, each in its own short transaction (published after
+    // each commit). Returning stock locks that stock row; doing it inside the reserve transaction
+    // (which then locks a second stock row) could deadlock two users whose overdue holds sit on
+    // each other's target rows.
+    await expireOverdue(now, { userId: u.id });
     try {
       outcome = await prisma.$transaction((tx) => reserveTx(tx, u, key.data, hash, body, now), RESERVE_TX_OPTIONS);
     } catch (e) {
