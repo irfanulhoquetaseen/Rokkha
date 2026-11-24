@@ -17,6 +17,6 @@ npm run dev              # http://localhost:3000
 
 Scripts: `dev`, `build`, `start`, `typecheck`, `lint`, `test`, `test:e2e`, `db:migrate`, `db:deploy`, `db:seed`.
 
-Concurrency demo (demo hospitals only): `npm run demo:race -- --url http://localhost:3000 --hospital dhanmondi-care-general --resource ICU_BED --set-available 1 --n 20` fires 20 simultaneous holds at 1 ICU bed and prints who won (expect HELD 1 / SOLD_OUT 19), then cancels its holds (`--keep` leaves them).
+Concurrency demo (demo hospitals only): `npm run demo:race -- --url http://localhost:3000 --hospital dhanmondi-care-general --resource ICU_BED --set-available 1 --n 20` fires 20 simultaneous holds at 1 ICU bed and prints who won (expect HELD 1 / SOLD_OUT 19), then cancels its holds and undoes the stock change (`--keep` / `--leave-stock` opt out); `--n` max 40.
 
 Full README (architecture, demo script, future work) lands in P7.
