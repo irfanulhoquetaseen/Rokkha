@@ -32,6 +32,7 @@ export const reservations = {
   holding: { bn: "হোল্ড হচ্ছে…", en: "Holding…" },
   networkProblem: { bn: "নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন", en: "Network problem — try again" },
   holdSectionTitle: { bn: "৩০ মিনিটের জন্য হোল্ড করুন", en: "Hold for 30 minutes" },
+  nothingToHold: { bn: "এই মুহূর্তে এখানে হোল্ড করার মতো কিছু নেই", en: "Nothing left to hold here right now" },
   alternativesTitle: { bn: "কাছের বিকল্প হাসপাতাল", en: "Nearby alternatives" },
   noAlternatives: {
     bn: "এই মুহূর্তে কোনো বিকল্প পাওয়া যায়নি। ৯৯৯-এ কল করুন বা অন্য রিসোর্স দেখুন।",

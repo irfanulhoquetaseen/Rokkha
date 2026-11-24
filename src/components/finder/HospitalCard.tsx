@@ -131,6 +131,11 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
               lang={lang}
             />
           ))}
+          {!hold.citizen && item.holdable.every((r) => r.soldOut) && (
+            <p data-testid="nothing-to-hold" className="text-sm font-semibold text-red-700 dark:text-red-400">
+              {reservations.nothingToHold[lang]}
+            </p>
+          )}
         </div>
       )}
     </li>

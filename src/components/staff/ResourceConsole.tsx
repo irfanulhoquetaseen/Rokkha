@@ -106,6 +106,8 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
   const dirty = useRef(new Set<string>());
   /** Latest live value of a frozen (dirty) row, applied when its form closes. */
   const heldBack = useRef(new Map<string, Current>());
+  /** Rows with a PATCH in flight: a live event then may be our own save's echo, so no "changed elsewhere" hint. */
+  const inFlight = useRef(new Set<string>());
   const refetchRef = useRef<Coalescer | null>(null);
   const lastAnnounce = useRef(0);
   const [announcement, setAnnouncement] = useState("");
@@ -142,7 +144,8 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
       const cur = liveValue(v);
       if (dirty.current.has(v.id)) {
         heldBack.current.set(v.id, cur);
-        setUi((u) => ({ ...u, [v.id]: { ...u[v.id], changedElsewhere: true } }));
+        // A real concurrent change still surfaces: the save then gets 409 and the conflict panel.
+        if (!inFlight.current.has(v.id)) setUi((u) => ({ ...u, [v.id]: { ...u[v.id], changedElsewhere: true } }));
       } else {
         fresh.set(v.id, cur);
       }
@@ -202,6 +205,7 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
     const row = held && held.version > shown.version ? { ...shown, ...held } : shown;
     if (prev.saving) return; // double-submit guard (buttons are disabled too)
     patchUi(row.id, { editing: prev.editing && change.op === "set" ? true : undefined, saving: true });
+    inFlight.current.add(row.id);
     try {
       const res = await fetch(`/api/staff/resources/${encodeURIComponent(row.id)}`, {
         method: "PATCH",
@@ -229,6 +233,8 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
       patchUi(row.id, { editing: prev.editing, error: err?.message ?? common.retry });
     } catch {
       patchUi(row.id, { editing: prev.editing, error: staff.networkError });
+    } finally {
+      inFlight.current.delete(row.id);
     }
   }
 

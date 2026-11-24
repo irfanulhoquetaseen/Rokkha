@@ -107,6 +107,10 @@ export function attachSocketServer(httpServer: HttpServer): Server {
         if (!(await authorizeRoom(user, room))) return reply({ ok: false, code: "NOT_FOUND" });
         // The session may have been revoked (socket disconnected) while we awaited.
         if (!socket.connected) return;
+        // Re-check after the awaits: parallel subscribes must not slip past the cap.
+        if (!socket.rooms.has(room) && clientRoomCount(socket) >= MAX_ROOMS_PER_SOCKET) {
+          return reply({ ok: false, code: "LIMIT_REACHED" });
+        }
         await socket.join(room);
         reply({ ok: true });
       } catch (e) {
