@@ -59,7 +59,7 @@ export async function findAlternatives(input: {
       resourceType: { code: resourceCode, kind: "COUNTABLE" },
       available: { gte: quantity },
       hospitalId: { not: excludeHospitalId },
-      hospital: { liveDataEnabled: true },
+      hospital: { liveDataEnabled: true, archivedAt: null },
     },
     orderBy: [{ available: "desc" }, { hospitalId: "asc" }],
     // Without an origin the DB can do the top-N; with one we sort by distance in JS.

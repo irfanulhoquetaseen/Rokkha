@@ -72,7 +72,7 @@ export async function listHospitalResources(
 /** Default hospital for an admin opening /staff: the first live-data hospital by English name. */
 export async function firstLiveHospitalId(): Promise<string | null> {
   const h = await prisma.hospital.findFirst({
-    where: { liveDataEnabled: true },
+    where: { liveDataEnabled: true, archivedAt: null },
     orderBy: { nameEn: "asc" },
     select: { id: true },
   });

@@ -122,9 +122,15 @@ async function reserveTx(
   // 3. The resource must exist, be countable, and belong to a hospital with live data.
   const hr = await tx.hospitalResource.findFirst({
     where: { hospitalId: body.hospitalId, resourceType: { code: body.resourceCode } },
-    select: { id: true, hospitalId: true, resourceTypeId: true, resourceType: { select: { kind: true } }, hospital: { select: { liveDataEnabled: true } } },
+    select: { id: true, hospitalId: true, resourceTypeId: true, resourceType: { select: { kind: true } }, hospital: { select: { liveDataEnabled: true, archivedAt: true } } },
   });
   if (!hr) throw new AppError("NOT_FOUND");
+  if (hr.hospital.archivedAt !== null) {
+    throw new AppError("CONFLICT", {
+      bn: "এই হাসপাতাল আর্কাইভ করা হয়েছে, রিজার্ভ করা যাবে না",
+      en: "This hospital is archived and cannot be reserved",
+    });
+  }
   if (hr.resourceType.kind !== "COUNTABLE" || !hr.hospital.liveDataEnabled) throw new AppError("VALIDATION_ERROR", t.cannotHold);
 
   let conditionId: string | null = null;
