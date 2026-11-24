@@ -3,6 +3,7 @@ import { expect, request as pwRequest, test, type APIRequestContext, type Page, 
 import { reservations as rt } from "@/lib/i18n/reservations";
 import { staff } from "@/lib/i18n/staff";
 import { HOSPITALS } from "../../prisma/data/hospitals";
+import { apiLogin, newProjectPage } from "./helpers";
 
 // Account allocation (global constraints): mobile and desktop run in parallel on one DB and never share holds.
 const CITIZEN = { mobile: "01700000023", desktop: "01700000101" } as const;
@@ -35,12 +36,7 @@ async function apiClient(phone: string, passwordVar: string): Promise<APIRequest
   return req;
 }
 
-async function loginPage(page: Page, phone: string) {
-  const res = await page.request.post("/api/auth/login", {
-    data: { phone, password: env("SEED_STAFF_PASSWORD") }, headers: { Origin: origin() },
-  });
-  expect(res.ok()).toBeTruthy();
-}
+const loginPage = (page: Page, phone: string) => apiLogin(page, phone, env("SEED_STAFF_PASSWORD"));
 
 async function stock(req: APIRequestContext): Promise<number> {
   const res = await req.get(`/api/hospitals/${DHANMONDI.slug}/stock`);
@@ -174,9 +170,7 @@ test("an action on a hold that changed meanwhile shows the message and refreshes
   await expect(row).toHaveCount(0);
 
   // Mirpur staff: the Dhanmondi queue API is a 404, and their own queue never lists this citizen.
-  const { baseURL: b, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = test.info().project.use;
-  const ctx = await browser.newContext({ baseURL: b, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
-  const mirpur = await ctx.newPage();
+  const mirpur = await newProjectPage(browser);
   await loginPage(mirpur, MIRPUR_STAFF);
   expect((await mirpur.request.get(`/api/staff/hospitals/${hid}/reservations?status=ALL`)).status()).toBe(404);
   await mirpur.goto("/staff");
@@ -186,7 +180,7 @@ test("an action on a hold that changed meanwhile shows the message and refreshes
   await queue(mirpur).getByLabel(staff.queueSearch.bn).fill(citizenPhone());
   await expect(queue(mirpur).getByTestId("queue-empty")).toBeVisible();
   await expect(queue(mirpur).locator(`[data-reservation-id="${id}"]`)).toHaveCount(0);
-  await ctx.close();
+  await mirpur.context().close();
 
   await citizen.dispose();
   await staffReq.dispose();

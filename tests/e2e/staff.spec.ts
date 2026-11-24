@@ -1,7 +1,8 @@
-import { expect, test, type Browser, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { auth } from "@/lib/i18n/auth";
 import { staff } from "@/lib/i18n/staff";
 import { HOSPITALS } from "../../prisma/data/hospitals";
+import { apiLogin as login, newProjectPage, origin } from "./helpers";
 
 // Seeded demo staff (prisma seed): 01700000011 → Dhanmondi Care General, 01700000012 → Mirpur Shastho.
 const DHANMONDI_STAFF = "01700000011";
@@ -28,20 +29,8 @@ const ROWS = {
 } as const;
 const rowsFor = (info: TestInfo) => ROWS[info.project.name as keyof typeof ROWS];
 
-const origin = () => new URL(test.info().project.use.baseURL!).origin;
-
-/** Log in through the API; page.request shares the page's cookie jar. */
-async function apiLogin(page: Page, phone: string) {
-  const res = await page.request.post("/api/auth/login", { data: { phone, password: staffPassword() }, headers: { Origin: origin() } });
-  expect(res.ok()).toBeTruthy();
-}
-
-/** A second, independent browser context with the same device settings as the current project. */
-async function newProjectPage(browser: Browser): Promise<Page> {
-  const { baseURL, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = test.info().project.use;
-  const ctx = await browser.newContext({ baseURL, viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
-  return ctx.newPage();
-}
+/** Log in through the API as demo staff; page.request shares the page's cookie jar. */
+const apiLogin = (page: Page, phone: string) => login(page, phone, staffPassword());
 
 type ApiRow = { id: string; code: string; kind: "COUNTABLE" | "STATUS"; available: number; total: number; isAvailable: boolean; version: number };
 

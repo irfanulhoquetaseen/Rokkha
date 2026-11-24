@@ -3,6 +3,7 @@ import { expect, request as pwRequest, test, type APIRequestContext, type Page, 
 import { realtime } from "@/lib/i18n/realtime";
 import { staff } from "@/lib/i18n/staff";
 import { HOSPITALS } from "../../prisma/data/hospitals";
+import { socketHandshake } from "./helpers";
 
 // Live staff console, live reservation queue and live citizen tracker (single browser context; the
 // "someone else" is an API client). Allocation: these Dhanmondi blood rows and racers are used by no
@@ -93,11 +94,6 @@ async function cleanUp() {
     else expect(patch.status(), `restore: ${await patch.text()}`).toBe(409); // version moved: retry
   }
   expect(consumed, "consumed units given back").toBe(0);
-}
-
-/** Resolves once the page's live island has loaded its socket chunk and handshaken. Call before goto. */
-function socketHandshake(page: Page) {
-  return page.waitForResponse((r) => r.url().includes("/socket.io/") && r.status() < 400, { timeout: 20_000 });
 }
 
 async function openConsole(page: Page) {

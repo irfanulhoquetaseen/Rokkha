@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { expect, request as pwRequest, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
+import { expect, request as pwRequest, test, type APIRequestContext, type TestInfo } from "@playwright/test";
 import { fmtNum } from "@/components/finder/format";
 import { HOSPITALS } from "../../prisma/data/hospitals";
+import { cancelActive, socketHandshake } from "./helpers";
 
 // Live sync, single browser context (multi-context races live in a later spec). The page is signed out;
 // a separate API client (a demo racer) reserves and cancels, and the page must follow without a reload.
@@ -22,20 +23,9 @@ test.describe.configure({ mode: "default" }); // one racer per project: run in o
 let racer: APIRequestContext;
 let hospitalId: string;
 
-async function activeHoldIds(req: APIRequestContext): Promise<string[]> {
-  const res = await req.get("/api/reservations");
-  expect(res.ok()).toBeTruthy();
-  const { items } = (await res.json()) as { items: { id: string; status: string }[] };
-  return items.filter((r) => r.status === "HELD").map((r) => r.id);
-}
-
 async function cancel(id: string) {
   const res = await racer.post(`/api/reservations/${id}/cancel`, { headers: { Origin: origin() } });
   expect(res.ok(), `cancel ${id}`).toBeTruthy();
-}
-
-async function cancelAll() {
-  for (const id of await activeHoldIds(racer)) await cancel(id);
 }
 
 async function reserve(): Promise<string> {
@@ -53,24 +43,19 @@ async function available(): Promise<number> {
   return resources.find((r) => r.code === setup().code)!.available;
 }
 
-/** Resolves once the page's live island has loaded its socket chunk and handshaken. Call before goto. */
-function socketHandshake(page: Page) {
-  return page.waitForResponse((r) => r.url().includes("/socket.io/") && r.status() < 400, { timeout: 20_000 });
-}
-
 test.beforeEach(async () => {
   racer = await pwRequest.newContext({ baseURL: baseURL() });
   const password = process.env.SEED_CITIZEN_PASSWORD;
   if (!password) throw new Error("SEED_CITIZEN_PASSWORD must be set (in .env) for realtime E2E tests");
   const login = await racer.post("/api/auth/login", { data: { phone: setup().racer, password }, headers: { Origin: origin() } });
   expect(login.ok(), "racer login").toBeTruthy();
-  await cancelAll();
+  await cancelActive(racer);
   const res = await racer.get(`/api/hospitals/${DHANMONDI.slug}/stock`);
   hospitalId = ((await res.json()) as { hospital: { id: string } }).hospital.id;
 });
 
 test.afterEach(async () => {
-  await cancelAll(); // leave stock as we found it (safe against the live URL)
+  await cancelActive(racer); // leave stock as we found it (safe against the live URL)
   await racer.dispose();
 });
 

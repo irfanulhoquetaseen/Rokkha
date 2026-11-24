@@ -3,6 +3,7 @@ import { expect, request as pwRequest, test, type APIRequestContext, type Page, 
 import { auth } from "@/lib/i18n/auth";
 import { reservations as t } from "@/lib/i18n/reservations";
 import { HOSPITALS } from "../../prisma/data/hospitals";
+import { cancelActive } from "./helpers";
 
 // Account allocation (global constraints): mobile and desktop run in parallel on one DB and never share holds.
 const ACCOUNTS = {
@@ -57,12 +58,6 @@ async function activeHolds(req: APIRequestContext): Promise<Row[]> {
   return items.filter((r) => r.status === "HELD");
 }
 
-async function cancelAll(req: APIRequestContext) {
-  for (const r of await activeHolds(req)) {
-    await req.post(`/api/reservations/${r.id}/cancel`, { headers: { Origin: origin() } });
-  }
-}
-
 async function reserve(req: APIRequestContext, hospitalId: string, resourceCode: string) {
   return req.post("/api/reservations", {
     data: { hospitalId, resourceCode },
@@ -92,14 +87,14 @@ let arranger: APIRequestContext;
 test.beforeEach(async () => {
   citizen = await apiClient(ACCOUNTS[project()].citizen);
   arranger = await apiClient(ACCOUNTS[project()].arranger);
-  await cancelAll(citizen);
-  await cancelAll(arranger);
+  await cancelActive(citizen);
+  await cancelActive(arranger);
 });
 
 test.afterEach(async () => {
   // Leave the DB as we found it (re-runnable, and safe against the live URL).
-  await cancelAll(arranger);
-  await cancelAll(citizen);
+  await cancelActive(arranger);
+  await cancelActive(citizen);
   await arranger.dispose();
   await citizen.dispose();
 });
