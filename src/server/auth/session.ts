@@ -40,6 +40,16 @@ export async function validateSessionToken(token: string): Promise<SessionUser |
   return { id: user.id, name: user.name, phone: user.phone, role: user.role, hospitalId: user.hospitalId };
 }
 
+/** The raw session token from a Cookie header, or null. Shared by route handlers and the socket handshake. */
+export function sessionTokenFromCookieHeader(header: string | null | undefined): string | null {
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0 && part.slice(0, i).trim() === SESSION_COOKIE) return part.slice(i + 1).trim() || null;
+  }
+  return null;
+}
+
 export async function deleteSession(token: string): Promise<void> {
   if (!token) return;
   await prisma.session.deleteMany({ where: { id: hashToken(token) } });

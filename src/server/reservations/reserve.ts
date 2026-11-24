@@ -77,7 +77,7 @@ export async function reserve(
   switch (outcome.kind) {
     case "held":
       publishStock(outcome.stock);
-      publishReservation({ ...outcome.view, hospitalId: outcome.view.hospital.id, userId: u.id });
+      publishReservation({ ...outcome.view, hospitalId: outcome.view.hospital.id });
       return { reservation: outcome.view, replayed: false };
     case "replay":
       return { reservation: outcome.view, replayed: true };

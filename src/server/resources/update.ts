@@ -5,6 +5,7 @@ import { audit } from "@/server/audit/audit";
 import { requireHospitalAccess, requireUser } from "@/server/auth/guards";
 import type { SessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
+import { publishStock } from "@/server/realtime/publish";
 import { toResourceView, type ResourceView } from "./queries";
 
 const MAX_STOCK = 100_000;
@@ -82,8 +83,9 @@ export async function updateHospitalResource(
     );
   }
 
+  let view: ResourceView;
   try {
-    return await prisma.$transaction(async (tx) => {
+    view = await prisma.$transaction(async (tx) => {
       const before = await tx.hospitalResource.findUnique({ where: { id: resourceId } });
       if (!before) throw new AppError("NOT_FOUND");
       if (before.version !== expectedVersion) throw conflict(before);
@@ -126,4 +128,10 @@ export async function updateHospitalResource(
     if (isStockCheckViolation(e)) throw validation("Available must stay between 0 and total", "প্রাপ্যতা ০ থেকে মোটের মধ্যে থাকতে হবে");
     throw e;
   }
+  // Emit only after the transaction committed (the finder, hospital and staff rooms update live).
+  publishStock({
+    id: view.id, hospitalId: view.hospitalId, resourceTypeId: view.resourceTypeId, code: view.code,
+    available: view.available, total: view.total, isAvailable: view.isAvailable, version: view.version, updatedAt: view.updatedAt,
+  });
+  return view;
 }
