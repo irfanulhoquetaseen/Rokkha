@@ -112,6 +112,7 @@ model Hospital {
   resources       HospitalResource[]
   reservations    Reservation[]
   soldOutEvents   SoldOutEvent[]
+  archivedAt      DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -119,6 +120,7 @@ model Hospital {
   @@index([district])
   @@index([liveDataEnabled])
   @@index([freeService])
+  @@index([archivedAt])
 }
 
 model ResourceType {
