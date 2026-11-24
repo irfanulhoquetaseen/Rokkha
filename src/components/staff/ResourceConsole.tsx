@@ -1,10 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type FormEvent } from "react";
+import { fmtClock } from "@/components/finder/format";
+import { type Coalescer, createCoalescer } from "@/components/realtime/coalesce";
+import { ReconnectingBanner } from "@/components/realtime/ReconnectingBanner";
+import { useLive } from "@/components/realtime/useLive";
+import { createVersionGate } from "@/components/realtime/version-gate";
+import { getJson } from "@/lib/api-client";
 import type { Bilingual, ErrorBody } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
 import { common } from "@/lib/i18n/common";
+import { realtime } from "@/lib/i18n/realtime";
 import { staff, staffFmt } from "@/lib/i18n/staff";
 import { ConflictPanel, type ServerValues } from "./ConflictPanel";
 
@@ -29,11 +36,22 @@ type Change =
   | { op: "status"; isAvailable: boolean };
 
 type Current = ServerValues & { version: number; updatedAt: string };
-type RowUi = { saving?: boolean; editing?: boolean; error?: Bilingual; conflict?: { current: Current; intended: ServerValues } };
+type RowUi = {
+  saving?: boolean;
+  editing?: boolean;
+  error?: Bilingual;
+  conflict?: { current: Current; intended: ServerValues };
+  /** A live change arrived while this row's Set form was dirty (the form keeps its base version). */
+  changedElsewhere?: boolean;
+};
+/** A live value of one row (socket event or snapshot row). */
+type LiveValue = Current & { id: string };
 type Filter = "all" | "low" | "stale";
 type Group = "beds" | "blood" | "services";
 
 const MAX_STOCK = 100_000;
+/** Screen readers hear "Stock updated" at most this often. */
+const ANNOUNCE_EVERY_MS = 10_000;
 /** Wall clock, only ever read from effects and event handlers (never during render). */
 const clockNow = () => Date.now();
 const GROUPS: { id: Group; label: Bilingual }[] = [
@@ -62,12 +80,35 @@ function isCurrent(v: unknown): v is Current {
     && typeof c.version === "number" && typeof c.updatedAt === "string";
 }
 
-type Props = { lang: Lang; initialRows: ConsoleRow[]; nowMs: number; staleAfterMs: number };
+const liveValue = (v: LiveValue): Current => ({
+  available: v.available, total: v.total, isAvailable: v.isAvailable, version: v.version, updatedAt: v.updatedAt,
+});
 
-export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Props) {
+type Props = { lang: Lang; hospitalId: string; initialRows: ConsoleRow[]; nowMs: number; staleAfterMs: number };
+
+/**
+ * Live staff console (CLAUDE.md §3.2). Rows follow `staff:{hospitalId}` stock events that pass the
+ * version gate, and every (re)connect refetches the snapshot. A row whose Set form is open AND dirty is
+ * frozen at the form's base version: the live value is held back and a "changed by someone else" hint
+ * appears, so saving hits the versioned PATCH's 409 and the existing conflict panel (Reload / Re-apply)
+ * instead of silently overwriting the other change. +/- and switches always use the latest live version.
+ */
+export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAfterMs }: Props) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [ui, setUi] = useState<Record<string, RowUi>>({});
+  const [gate] = useState(() => {
+    const g = createVersionGate();
+    for (const r of initialRows) g.set(r.id, r.version);
+    return g;
+  });
+  /** Rows whose open Set form the user has typed into. */
+  const dirty = useRef(new Set<string>());
+  /** Latest live value of a frozen (dirty) row, applied when its form closes. */
+  const heldBack = useRef(new Map<string, Current>());
+  const refetchRef = useRef<Coalescer | null>(null);
+  const lastAnnounce = useRef(0);
+  const [announcement, setAnnouncement] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [now, setNow] = useState(nowMs); // starts from the server's clock so hydration matches
@@ -77,12 +118,88 @@ export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Prop
     return () => clearInterval(t);
   }, []);
 
-  const patchUi = (id: string, next: RowUi) => setUi((u) => ({ ...u, [id]: next }));
-  const adopt = (id: string, v: Current) =>
+  const adopt = (id: string, v: Current) => {
+    gate.set(id, v.version); // our own save's echo event is then a no-op
     setRows((rs) => rs.map((r) => (r.id === id && v.version > r.version ? { ...r, ...v } : r)));
+  };
+  /** Replace a row's UI state. Closing its Set form unfreezes the row and applies any held-back live value. */
+  const patchUi = (id: string, next: RowUi) => {
+    if (!next.editing) {
+      dirty.current.delete(id);
+      const held = heldBack.current.get(id);
+      heldBack.current.delete(id);
+      if (held) adopt(id, held);
+    }
+    setUi((u) => ({ ...u, [id]: next }));
+  };
 
-  async function send(row: ConsoleRow, change: Change) {
-    const prev = ui[row.id] ?? {};
+  /** Apply live values that already passed the version gate. */
+  function applyLive(values: LiveValue[]) {
+    if (values.length === 0) return;
+    const now = clockNow();
+    const fresh = new Map<string, Current>();
+    for (const v of values) {
+      const cur = liveValue(v);
+      if (dirty.current.has(v.id)) {
+        heldBack.current.set(v.id, cur);
+        setUi((u) => ({ ...u, [v.id]: { ...u[v.id], changedElsewhere: true } }));
+      } else {
+        fresh.set(v.id, cur);
+      }
+    }
+    if (fresh.size > 0) {
+      setRows((rs) => rs.map((r) => {
+        const v = fresh.get(r.id);
+        return v && v.version > r.version ? { ...r, ...v } : r;
+      }));
+      // An open conflict panel shows the newest server value, so Reload / Re-apply act on it.
+      setUi((u) => {
+        let next = u;
+        for (const [id, v] of fresh) {
+          const c = u[id]?.conflict;
+          if (c && v.version > c.current.version) next = { ...next, [id]: { ...u[id], conflict: { ...c, current: v } } };
+        }
+        return next;
+      });
+    }
+    setNow(now);
+    if (now - lastAnnounce.current >= ANNOUNCE_EVERY_MS) {
+      lastAnnounce.current = now;
+      setAnnouncement(realtime.stockUpdated[lang].replace("{t}", fmtClock(new Date(now), lang)));
+    }
+  }
+  const applySnapshot = useEffectEvent((values: LiveValue[]) => applyLive(values));
+
+  // Declared before useLive, so the coalescer exists before the first connect calls onConnect.
+  useEffect(() => {
+    const c = createCoalescer(async () => {
+      const res = await getJson<{ resources: LiveValue[] }>(`/api/staff/hospitals/${encodeURIComponent(hospitalId)}/resources`);
+      if (!res.ok) return; // keep what is shown; the next connect or event tries again
+      // Everything the gate holds is already shown (or held back): apply only strictly newer rows.
+      applySnapshot(res.data.resources.filter((r) => gate.accept(r.id, r.version)));
+    }, 300);
+    refetchRef.current = c;
+    return () => {
+      c.cancel();
+      refetchRef.current = null;
+    };
+  }, [hospitalId, gate]);
+
+  const { state } = useLive({
+    rooms: [`staff:${hospitalId}`],
+    onEvent: {
+      "stock:changed": (s) => {
+        if (s.hospitalId === hospitalId && gate.accept(s.id, s.version)) applyLive([s]);
+      },
+    },
+    onConnect: () => refetchRef.current?.trigger(),
+  });
+
+  async function send(shown: ConsoleRow, change: Change) {
+    const prev = ui[shown.id] ?? {};
+    // A Set is versioned on the form's base row; a step or a switch acts on the latest live value.
+    const held = change.op === "set" ? undefined : heldBack.current.get(shown.id);
+    const row = held && held.version > shown.version ? { ...shown, ...held } : shown;
     if (prev.saving) return; // double-submit guard (buttons are disabled too)
     patchUi(row.id, { editing: prev.editing && change.op === "set" ? true : undefined, saving: true });
     try {
@@ -132,6 +249,14 @@ export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Prop
     void send(base, change);
   }
 
+  /** The user typed into a Set form: from now on live values must not replace its base row. */
+  function markDirty(row: ConsoleRow, e: FormEvent<HTMLFormElement>) {
+    const fd = new FormData(e.currentTarget);
+    if (String(fd.get("available")) !== String(row.available) || String(fd.get("total")) !== String(row.total)) {
+      dirty.current.add(row.id);
+    }
+  }
+
   function submitSet(row: ConsoleRow, e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -162,6 +287,10 @@ export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Prop
 
   return (
     <div className="flex flex-col gap-5">
+      <ReconnectingBanner state={state} lang={lang} />
+      <p role="status" aria-live="polite" data-testid="console-live-status" className="sr-only">
+        {announcement}
+      </p>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-1">
           <label htmlFor="staff-search" className="text-sm font-medium">{staff.search[lang]}</label>
@@ -274,7 +403,20 @@ export function ResourceConsole({ lang, initialRows, nowMs, staleAfterMs }: Prop
                     {busy && <p className="text-xs text-zinc-600 dark:text-zinc-400" aria-live="polite">{staff.saving[lang]}</p>}
 
                     {r.kind === "COUNTABLE" && u.editing && !u.conflict && (
-                      <form onSubmit={(e) => submitSet(r, e)} noValidate className="grid grid-cols-2 gap-2">
+                      // Keyed by version: an untouched form re-mounts with the live values; a dirty one is
+                      // never re-keyed because its row is frozen until the form closes.
+                      <form
+                        key={r.version}
+                        onSubmit={(e) => submitSet(r, e)}
+                        onInput={(e) => markDirty(r, e)}
+                        noValidate
+                        className="grid grid-cols-2 gap-2"
+                      >
+                        {u.changedElsewhere && (
+                          <p data-testid="changed-elsewhere" role="status" className="col-span-2 rounded-md border border-orange-400 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-950 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-100">
+                            {realtime.changedElsewhere[lang]}
+                          </p>
+                        )}
                         <div className="flex flex-col gap-1">
                           <label htmlFor={`${r.id}-available`} className="text-sm">{staff.available[lang]}</label>
                           <input id={`${r.id}-available`} name="available" type="number" inputMode="numeric" min={0} max={MAX_STOCK} defaultValue={r.available} className={inputCls} />

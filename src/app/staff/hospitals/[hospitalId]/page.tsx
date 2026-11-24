@@ -66,6 +66,7 @@ async function ConsoleBody({ params }: { params: Params }) {
       </div>
       <ResourceConsole
         lang={lang}
+        hospitalId={data.hospital.id}
         initialRows={data.resources.map(toRow)}
         nowMs={nowMs}
         staleAfterMs={STALE_AFTER_MS}

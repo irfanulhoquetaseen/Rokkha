@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { type Coalescer, createCoalescer } from "@/components/realtime/coalesce";
+import { ReconnectingBanner } from "@/components/realtime/ReconnectingBanner";
+import { useLive } from "@/components/realtime/useLive";
 import { getJson, postJson } from "@/lib/api-client";
 import type { Bilingual } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
+import { realtime } from "@/lib/i18n/realtime";
 import { reservations as t } from "@/lib/i18n/reservations";
 import { fmtNum } from "@/components/finder/format";
 import { StatusBadge, statusLabel, type Status } from "./StatusBadge";
@@ -45,7 +49,9 @@ type OneResponse = { reservation: TrackerReservation; serverNow?: string };
 /**
  * Live part of the tracker: status, a countdown to expiresAt (server-clock corrected), cancel with an
  * inline second tap (never window.confirm), and the event timeline. At 0 it shows "Expired" and asks
- * the server, which lazily expires the hold and returns the real status.
+ * the server, which lazily expires the hold and returns the real status. Live: `reservation:{id}` events
+ * newer than the shown version (and every socket (re)connect) refetch the reservation, so a staff
+ * check-in, rejection, completion or the expiry sweeper shows up at once, without a reload.
  */
 export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReservation; serverNowMs: number; lang: Lang }) {
   const [r, setR] = useState(initial);
@@ -58,6 +64,8 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<Bilingual | null>(null);
   const inFlight = useRef(false);
+  const refetchRef = useRef<Coalescer | null>(null);
+  const [announcement, setAnnouncement] = useState("");
 
   const held = r.status === "HELD";
   const leftMs = new Date(r.expiresAt).getTime() - nowMs;
@@ -80,6 +88,38 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
       clearTimeout(first);
     };
   }, [r.id]);
+
+  // Live refetch (coalesced). Declared before useLive, so it exists before the first connect.
+  const applyFresh = useEffectEvent((next: TrackerReservation) => {
+    if (next.version > r.version && next.status !== r.status) {
+      setAnnouncement(realtime.statusNow[lang].replace("{s}", statusLabel(next.status, lang)));
+    }
+    setR(newer(next));
+  });
+  useEffect(() => {
+    const c = createCoalescer(async () => {
+      const res = await getJson<OneResponse>(`/api/reservations/${encodeURIComponent(r.id)}`);
+      if (!res.ok) return; // keep what is shown; the next event or connect tries again
+      const server = res.data.serverNow ? Date.parse(res.data.serverNow) : NaN;
+      if (Number.isFinite(server)) offsetRef.current = server - Date.now();
+      applyFresh(res.data.reservation);
+    }, 150);
+    refetchRef.current = c;
+    return () => {
+      c.cancel();
+      refetchRef.current = null;
+    };
+  }, [r.id]);
+
+  const { state } = useLive({
+    rooms: [`reservation:${r.id}`],
+    onEvent: {
+      "reservation:changed": (ev) => {
+        if (ev.id === r.id && ev.version > r.version) refetchRef.current?.trigger();
+      },
+    },
+    onConnect: () => refetchRef.current?.trigger(),
+  });
 
   useEffect(() => {
     if (!held) return;
@@ -133,6 +173,10 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
 
   return (
     <div className="flex flex-col gap-4">
+      <ReconnectingBanner state={state} lang={lang} />
+      <p role="status" aria-live="polite" data-testid="tracker-live-status" className="sr-only">
+        {announcement}
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">{t.resource[lang]}</p>

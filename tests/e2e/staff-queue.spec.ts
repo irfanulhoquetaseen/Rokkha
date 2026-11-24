@@ -158,6 +158,9 @@ test("an action on a hold that changed meanwhile shows the message and refreshes
   await clearActive(citizen, staffReq, hid);
 
   const id = await hold(citizen, hid);
+  // A live queue drops the cancelled hold by itself (realtime-staff.spec). This page's live connection
+  // is down, so it keeps showing HELD: the server must still be the arbiter of the transition.
+  await page.route("**/socket.io/**", (route) => route.abort());
   await openQueue(page);
   await queue(page).getByLabel(staff.queueSearch.bn).fill(citizenPhone());
   const row = rowOf(page, id);

@@ -17,5 +17,11 @@ export const realtime = {
     bn: "এই হাসপাতাল লাইভ তথ্য দেয় না — যাওয়ার আগে ফোন করে জেনে নিন।",
     en: "This hospital does not share live data — call before you go.",
   },
+  changedElsewhere: {
+    bn: "অন্য কেউ এটি বদলেছেন — সংরক্ষণ করলে দুটো মানই দেখাবে।",
+    en: "Changed by someone else — saving will show both values.",
+  },
+  queueUpdated: { bn: "রিজার্ভেশন তালিকা আপডেট হয়েছে {t}", en: "Reservations updated {t}" },
+  statusNow: { bn: "অবস্থা এখন: {s}", en: "Status now: {s}" },
   findHospital: { bn: "জরুরি অবস্থার জন্য হাসপাতাল খুঁজুন", en: "Find a hospital for an emergency" },
 } as const satisfies Record<string, Bilingual>;

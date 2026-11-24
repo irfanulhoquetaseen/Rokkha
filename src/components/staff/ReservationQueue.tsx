@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { fmtNum } from "@/components/finder/format";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { fmtClock, fmtNum } from "@/components/finder/format";
+import { type Coalescer, createCoalescer } from "@/components/realtime/coalesce";
+import { useLive } from "@/components/realtime/useLive";
 import { StatusBadge, type Status } from "@/components/reservations/StatusBadge";
 import { fmtCountdown } from "@/components/reservations/Tracker";
 import { getJson, postJson } from "@/lib/api-client";
 import type { Bilingual } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
+import { realtime } from "@/lib/i18n/realtime";
 import { reservations as rt } from "@/lib/i18n/reservations";
 import { staff } from "@/lib/i18n/staff";
 
@@ -38,6 +41,8 @@ const statusOptionLabel = (s: StatusFilter): Bilingual =>
   s === "ACTIVE" ? staff.statusActive : s === "ALL" ? staff.statusAll : rt[`status_${s}`];
 
 const SEARCH_DEBOUNCE_MS = 300;
+/** Screen readers hear "Reservations updated" at most this often. */
+const ANNOUNCE_EVERY_MS = 10_000;
 const REASON_MIN = 3;
 const REASON_MAX = 300;
 
@@ -84,10 +89,18 @@ export function ReservationQueue({
   // Action buttons stay disabled until hydrated: a tap on server HTML would otherwise do nothing.
   const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
-  /** `keepError`: the refetch right after a failed action keeps that action's message visible. */
-  const load = useCallback(async (keepError = false) => {
+  const refetchRef = useRef<Coalescer | null>(null);
+  const lastAnnounce = useRef(0);
+  const [announcement, setAnnouncement] = useState("");
+
+  /**
+   * `keepError`: the refetch right after a failed action keeps that action's message visible.
+   * `live`: a background refetch after a socket event or a (re)connect — no dimming, any message stays,
+   * and only an event-driven one is announced to screen readers.
+   */
+  const load = useCallback(async (keepError = false, live: false | "event" | "connect" = false) => {
     const mine = ++seq.current;
-    setLoading(true);
+    if (!live) setLoading(true);
     const sp = new URLSearchParams({ status, sort, page: String(page) });
     if (q) sp.set("q", q);
     const res = await getJson<QueuePage>(`/api/staff/hospitals/${encodeURIComponent(hospitalId)}/reservations?${sp}`);
@@ -95,14 +108,21 @@ export function ReservationQueue({
     setLoading(false);
     if (res.ok) {
       setData((d) => ({ ...res.data, items: mergeNewer(d.items, res.data.items) }));
-      if (!keepError) setError(null);
+      if (!keepError && !live) setError(null);
+      if (live === "event") {
+        const now = Date.now();
+        if (now - lastAnnounce.current >= ANNOUNCE_EVERY_MS) {
+          lastAnnounce.current = now;
+          setAnnouncement(realtime.queueUpdated[lang].replace("{t}", fmtClock(new Date(now), lang)));
+        }
+      }
       // A shrunk result (e.g. rows left the filter) can leave us past the last page.
       const last = Math.max(1, Math.ceil(res.data.total / res.data.pageSize));
       if (res.data.page > last) setPage(last);
     } else {
       setError("error" in res ? res.error.message : staff.networkError);
     }
-  }, [hospitalId, status, sort, page, q]);
+  }, [hospitalId, status, sort, page, q, lang]);
 
   // Debounce the search box.
   useEffect(() => {
@@ -121,6 +141,39 @@ export function ReservationQueue({
     }
     void load();
   }, [load]);
+
+  // Live: any reservation change at this hospital refetches the current page (coalesced; the payload
+  // carries no personal data, so the row itself always comes from the API). Every (re)connect too.
+  const eventPending = useRef(false);
+  const liveLoad = useEffectEvent((mode: "event" | "connect") => load(false, mode));
+  // Declared before useLive, so the coalescer exists before the first connect calls onConnect.
+  useEffect(() => {
+    const c = createCoalescer(async () => {
+      const mode = eventPending.current ? "event" : "connect";
+      eventPending.current = false;
+      await liveLoad(mode);
+    }, 300);
+    refetchRef.current = c;
+    return () => {
+      c.cancel();
+      refetchRef.current = null;
+    };
+  }, [hospitalId]);
+
+  // The page's ReconnectingBanner is rendered by the ResourceConsole above (one banner per page).
+  useLive({
+    rooms: [`staff:${hospitalId}`],
+    onEvent: {
+      "reservation:changed": (ev) => {
+        if (ev.hospitalId !== hospitalId) return;
+        const shown = data.items.find((r) => r.id === ev.id);
+        if (shown && shown.version >= ev.version) return; // e.g. the echo of our own action
+        eventPending.current = true;
+        refetchRef.current?.trigger();
+      },
+    },
+    onConnect: () => refetchRef.current?.trigger(),
+  });
 
   const anyHeld = data.items.some((r) => r.status === "HELD");
   useEffect(() => {
@@ -172,6 +225,9 @@ export function ReservationQueue({
   return (
     <section aria-labelledby="queue-title" data-testid="reservation-queue" data-hydrated={hydrated} className="flex flex-col gap-3">
       <h2 id="queue-title" className="text-xl font-bold">{staff.queueTitle[lang]}</h2>
+      <p role="status" aria-live="polite" data-testid="queue-live-status" className="sr-only">
+        {announcement}
+      </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-1">

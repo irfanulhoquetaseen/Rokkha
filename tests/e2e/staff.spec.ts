@@ -184,6 +184,9 @@ test("another hospital's console is a real 404 and its API PATCH is 404", async 
 test("stale page gets the conflict panel; Reload adopts the other page's value", async ({ page, browser }, info) => {
   const code = rowsFor(info).conflict;
   const pageB = await newProjectPage(browser);
+  // A live console follows page A's change (realtime-staff.spec covers that, and the dirty-form conflict).
+  // Page B is a console whose live connection is down: the versioned PATCH must still catch it.
+  await pageB.route("**/socket.io/**", (route) => route.abort());
   await Promise.all([apiLogin(page, DHANMONDI_STAFF), apiLogin(pageB, DHANMONDI_STAFF)]);
   await Promise.all([page.goto("/staff"), pageB.goto("/staff")]);
   await expect(page).toHaveURL(/\/staff\/hospitals\/[^/]+$/);
