@@ -6,6 +6,7 @@ import { Call999Button } from "@/components/Call999Button";
 import { ConditionGrid } from "@/components/finder/ConditionGrid";
 import { DirectoryList } from "@/components/finder/DirectoryList";
 import { FilterBar } from "@/components/finder/FilterBar";
+import { FinderLive } from "@/components/finder/FinderLive";
 import { FinderSkeleton } from "@/components/finder/FinderSkeleton";
 import { FirstAidCard } from "@/components/finder/FirstAidCard";
 import { fmtNum, requestTimeMs } from "@/components/finder/format";
@@ -80,6 +81,8 @@ async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
+      {/* Live: newer stock for this condition re-runs the ranking (router.refresh). */}
+      <FinderLive relevantCodes={result.relevantCodes} versions={result.stockVersions} lang={lang} />
       {noticeList}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold break-words">{conditionName}</h1>

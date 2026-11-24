@@ -28,9 +28,17 @@ type Failure = { message: Bilingual; limit?: boolean; login?: boolean };
 const btn =
   "inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-red-700 px-4 py-2 text-center text-base font-bold text-white hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-wait disabled:opacity-70";
 
-export function holdLabel(resource: HoldResource, lang: Lang): string {
+/** "Hold <name> for 30 min (<n> left)", with the live count in its own element (`hold-available`) for tests. */
+function HoldLabel({ resource, lang }: { resource: HoldResource; lang: Lang }) {
   const name = lang === "bn" ? resource.nameBn : resource.nameEn;
-  return t.holdLabel[lang].replace("{name}", name).replace("{n}", fmtNum(resource.available, lang));
+  const [before, after = ""] = t.holdLabel[lang].replace("{name}", name).split("{n}");
+  return (
+    <span>
+      {before}
+      <span data-testid="hold-available" data-code={resource.code}>{fmtNum(resource.available, lang)}</span>
+      {after}
+    </span>
+  );
 }
 
 /**
@@ -107,7 +115,7 @@ export function HoldButton(props: HoldButtonProps) {
         aria-busy={pending}
         onClick={hold}
       >
-        {pending ? t.holding[lang] : holdLabel(resource, lang)}
+        {pending ? t.holding[lang] : <HoldLabel resource={resource} lang={lang} />}
       </button>
       {failure && (
         <div role="alert" data-testid="hold-error" className="flex flex-col gap-1 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">

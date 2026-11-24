@@ -160,3 +160,34 @@ export async function getHospitalStock(idOrSlug: string): Promise<HospitalStock>
     })),
   };
 }
+
+/** Cheap existence check by id or slug (one indexed select): lets the proxy answer unknown hospitals with a real 404. */
+export async function hospitalExists(idOrSlug: string): Promise<boolean> {
+  const key = hospitalKeySchema.safeParse(idOrSlug);
+  if (!key.success) return false;
+  const h = await prisma.hospital.findFirst({ where: { OR: [{ id: key.data }, { slug: key.data }] }, select: { id: true } });
+  return h !== null;
+}
+
+export type HospitalPage = {
+  stock: HospitalStock;
+  info: { type: "GOVT" | "PRIVATE"; freeService: boolean; phone: string; address: string };
+  /** Display names per resource code, for every row in `stock.resources`. */
+  names: Record<string, { nameBn: string; nameEn: string }>;
+};
+
+/** Public hospital page: live stock (same snapshot as the API) + contact details + resource names. */
+export async function getHospitalPage(idOrSlug: string): Promise<HospitalPage> {
+  const stock = await getHospitalStock(idOrSlug);
+  const [info, types] = await Promise.all([
+    prisma.hospital.findUniqueOrThrow({
+      where: { id: stock.hospital.id },
+      select: { type: true, freeService: true, phone: true, address: true },
+    }),
+    prisma.resourceType.findMany({
+      where: { id: { in: stock.resources.map((r) => r.resourceTypeId) } },
+      select: { code: true, nameBn: true, nameEn: true },
+    }),
+  ]);
+  return { stock, info, names: Object.fromEntries(types.map(({ code, ...n }) => [code, n])) };
+}

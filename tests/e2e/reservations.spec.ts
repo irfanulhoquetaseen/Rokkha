@@ -176,6 +176,8 @@ test("sold-out shows alternatives", async ({ page }) => {
   const { url, hospital } = SOLD_OUT[project()];
   await login(page.request, ACCOUNTS[project()].citizen);
   expect(await stockOf(citizen, hospital.slug, "ICU_BED"), "seeded last unit").toBe(1);
+  // A stale page = no live connection (with live sync the button would vanish before the click).
+  await page.route("**/socket.io/**", (route) => route.abort());
 
   await page.goto(url);
   const btn = holdButton(page, hospital.nameBn, "ICU_BED");

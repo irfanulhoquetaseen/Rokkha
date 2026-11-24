@@ -1,5 +1,7 @@
+import Link from "next/link";
 import type { Lang } from "@/lib/i18n";
 import { finder } from "@/lib/i18n/finder";
+import { realtime } from "@/lib/i18n/realtime";
 import { reservations } from "@/lib/i18n/reservations";
 import { HoldButton } from "@/components/reservations/HoldButton";
 import type { FinderResult } from "@/server/finder/search";
@@ -49,7 +51,15 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
           {fmtNum(item.rank, lang)}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-bold leading-snug break-words">{lang === "bn" ? h.nameBn : h.nameEn}</h3>
+          <h3 className="text-base font-bold leading-snug break-words">
+            <Link
+              href={`/hospitals/${encodeURIComponent(h.slug)}`}
+              prefetch={false}
+              className="underline decoration-zinc-400 underline-offset-2 hover:decoration-current"
+            >
+              {lang === "bn" ? h.nameBn : h.nameEn}
+            </Link>
+          </h3>
           <p className="text-sm break-words text-zinc-600 dark:text-zinc-400">{h.address}</p>
         </div>
         <span
@@ -92,6 +102,20 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
       {item.holdable.length > 0 && hold.citizen !== false && (
         <div data-testid="hold-section" className="flex flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
           <p className="text-sm font-bold">{reservations.holdSectionTitle[lang]}</p>
+          {/* Signed out sees one login link, so list every holdable count here (signed in: counts are on the buttons). */}
+          {!hold.citizen && (
+            <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+              <span className="text-zinc-600 dark:text-zinc-400">{realtime.availableNow[lang]}:</span>
+              {item.holdable.map((r) => (
+                <span key={r.code}>
+                  {lang === "bn" ? r.nameBn : r.nameEn}{" "}
+                  <span data-testid="hold-available" data-code={r.code} className="font-bold">
+                    {fmtNum(r.available, lang)}
+                  </span>
+                </span>
+              ))}
+            </p>
+          )}
           {/* Signed out: one login link per card (it returns here); signed in: one button per resource. */}
           {(hold.citizen ? item.holdable : item.holdable.slice(0, 1)).map((r) => (
             <HoldButton

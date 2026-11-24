@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { requireHospitalAccess, requireReservationOwner } from "@/server/auth/guards";
 import { SESSION_COOKIE, validateSessionToken } from "@/server/auth/session";
 import { firstAidGuideExists } from "@/server/finder/search";
+import { hospitalExists } from "@/server/reservations/queries";
 import { firstLiveHospitalId } from "@/server/resources/queries";
 
 /**
@@ -18,6 +19,7 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   try {
     if (pathname.startsWith("/first-aid/")) return await firstAidGate(req, pathname);
+    if (pathname.startsWith("/hospitals/")) return await hospitalGate(req, pathname);
     if (pathname === "/reservations" || pathname.startsWith("/reservations/")) return await reservationsGate(req, pathname);
     return await staffGate(req, pathname);
   } catch (e) {
@@ -43,6 +45,19 @@ async function firstAidGate(req: NextRequest, pathname: string) {
   }
   if (!CONDITION_CODE.test(code) || !(await firstAidGuideExists(code))) return notFound(req);
   return NextResponse.next();
+}
+
+/** /hospitals/<id or slug> (public): 404 unless that hospital exists. */
+async function hospitalGate(req: NextRequest, pathname: string) {
+  const m = /^\/hospitals\/([^/]+)\/?$/.exec(pathname);
+  if (!m) return notFound(req);
+  let key: string;
+  try {
+    key = decodeURIComponent(m[1]!);
+  } catch {
+    return notFound(req);
+  }
+  return (await hospitalExists(key)) ? NextResponse.next() : notFound(req);
 }
 
 async function sessionUser(req: NextRequest) {
@@ -106,5 +121,5 @@ function notFound(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/staff", "/staff/:path*", "/first-aid/:condition", "/reservations", "/reservations/:path*"],
+  matcher: ["/staff", "/staff/:path*", "/first-aid/:condition", "/hospitals/:hospital", "/reservations", "/reservations/:path*"],
 };

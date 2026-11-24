@@ -225,6 +225,23 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     expect(all.resourceTypes[0]).toHaveProperty("nameBn");
   });
 
+  it("exposes relevant codes and the page's row versions for the live version gate", async () => {
+    const r = await searchHospitals(p({ condition: "SNAKEBITE", area: "dhanmondi", resource: "OXYGEN_CYLINDER" }), NOW);
+    expect([...r.relevantCodes].sort()).toEqual(["ANTIVENOM", "ICU_BED", "OXYGEN_CYLINDER", "VENTILATOR"]);
+    const rows = await prisma.hospitalResource.findMany({
+      where: { hospitalId: { in: r.results.map((x) => x.hospitalId) }, resourceType: { code: { in: r.relevantCodes } } },
+      select: { id: true, version: true },
+    });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(r.stockVersions).toEqual(Object.fromEntries(rows.map((x) => [x.id, x.version])));
+
+    const blood = await searchHospitals(p({ condition: "TRAUMA" }), NOW);
+    expect(blood.relevantCodes).toEqual(expect.arrayContaining(["BLOOD_O_NEG", "BLOOD_AB_POS"]));
+    const none = await searchHospitals(p({}), NOW);
+    expect(none.relevantCodes).toEqual([]);
+    expect(none.stockVersions).toEqual({});
+  });
+
   it("returns condition null and no results for an unknown condition", async () => {
     const r = await searchHospitals(p({ condition: "FOO" }), NOW);
     expect(r.condition).toBeNull();

@@ -4,9 +4,9 @@ import type { FullConfig } from "@playwright/test";
 import { assertTestDatabaseUrl } from "../support/test-db-guard";
 
 // Pages compiled on first request; warming them avoids dev-server cold-compile reloads mid-test.
-const WARM_ROUTES = ["/", "/login", "/signup", "/status", "/find?condition=STROKE", "/first-aid/STROKE"];
+const WARM_ROUTES = ["/", "/login", "/signup", "/status", "/find?condition=STROKE", "/first-aid/STROKE", "/hospitals/dhanmondi-care-general"];
 // Expected non-200s that still compile code paths used by the specs (proxy 404 / not-found page).
-const WARM_STATUS_ROUTES: [string, number][] = [["/first-aid/NOPE", 404]];
+const WARM_STATUS_ROUTES: [string, number][] = [["/first-aid/NOPE", 404], ["/hospitals/nope", 404]];
 // Seeded demo staff (Dhanmondi Care General); used to compile the authenticated staff console.
 const WARM_STAFF_PHONE = "01700000011";
 

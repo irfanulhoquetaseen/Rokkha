@@ -37,6 +37,10 @@ export type FinderResult = {
   resourceIgnored: boolean;
   /** Options for the resource filter, in sortOrder. */
   resourceTypes: ResourceOption[];
+  /** Resource codes whose stock can change this result (requirements, all blood rows if blood is required, the filter). */
+  relevantCodes: string[];
+  /** `{ hospitalResourceId: version }` of the relevant rows of the hospitals on this page (live version gate). */
+  stockVersions: Record<string, number>;
 };
 
 export type ResourceOption = { code: string; nameBn: string; nameEn: string };
@@ -131,7 +135,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
   const resourceIgnored = params.resource !== undefined && resourceCode === undefined;
   const empty: FinderResult = {
     condition: null, results: [], total: 0, page: params.page, pageSize: PAGE_SIZE, directory, radiusIgnored,
-    resourceIgnored, resourceTypes,
+    resourceIgnored, resourceTypes, relevantCodes: [], stockVersions: {},
   };
   if (!conditionRow) return empty;
 
@@ -147,7 +151,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
       phone: true, area: true, district: true, address: true, lat: true, lng: true, isDemo: true,
       resources: {
         select: {
-          total: true, available: true, isAvailable: true, updatedAt: true,
+          id: true, version: true, total: true, available: true, isAvailable: true, updatedAt: true,
           resourceType: { select: { code: true, kind: true, consumable: true, bloodGroup: true, nameBn: true, nameEn: true } },
         },
       },
@@ -223,9 +227,16 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
   const lastPage = Math.max(1, Math.ceil(ranked.length / PAGE_SIZE));
   const page = Math.min(params.page, lastPage);
 
+  const relevant = new Set<string>();
+  for (const r of requirements) if (r.resourceCode) relevant.add(r.resourceCode);
+  if (requirements.some((r) => r.isBlood)) for (const t of resourceTypes) if (t.code.startsWith("BLOOD_")) relevant.add(t.code);
+  if (resourceCode) relevant.add(resourceCode);
+  const stockVersions: Record<string, number> = {};
+
   const byId = new Map(hospitals.map((h) => [h.id, h]));
   const slice = ranked.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => {
     const h = byId.get(r.hospitalId)!;
+    for (const row of h.resources) if (relevant.has(row.resourceType.code)) stockVersions[row.id] = row.version;
     return {
       ...r,
       holdable: holdableFor(h.resources, requirements, params.blood ?? null, compatibleDonors),
@@ -246,6 +257,8 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
     radiusIgnored,
     resourceIgnored,
     resourceTypes,
+    relevantCodes: [...relevant],
+    stockVersions,
   };
 }
 
