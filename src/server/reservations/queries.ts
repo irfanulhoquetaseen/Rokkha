@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, ResourceKind } from "@/generated/prisma/client";
 import { AppError } from "@/lib/errors";
 import { requireHospitalAccess, requireReservationOwner, requireUser } from "@/server/auth/guards";
 import type { SessionUser } from "@/server/auth/session";
@@ -132,7 +132,8 @@ const hospitalKeySchema = z.string().min(1).max(64).regex(/^[\w-]+$/);
 
 export type HospitalStock = {
   hospital: { id: string; slug: string; nameBn: string; nameEn: string; isDemo: boolean; liveDataEnabled: boolean };
-  resources: StockSnapshot[];
+  /** `kind` lets clients (e.g. `demo:race`) tell COUNTABLE from STATUS without a second call. */
+  resources: (StockSnapshot & { kind: ResourceKind })[];
 };
 
 /** Public live stock of one hospital, looked up by id or slug; unknown/malformed → NOT_FOUND. */
@@ -144,7 +145,7 @@ export async function getHospitalStock(idOrSlug: string): Promise<HospitalStock>
     select: {
       id: true, slug: true, nameBn: true, nameEn: true, isDemo: true, liveDataEnabled: true,
       resources: {
-        include: { resourceType: { select: { code: true } } },
+        include: { resourceType: { select: { code: true, kind: true } } },
         orderBy: [{ resourceType: { sortOrder: "asc" } }, { id: "asc" }],
       },
     },
@@ -154,7 +155,7 @@ export async function getHospitalStock(idOrSlug: string): Promise<HospitalStock>
   return {
     hospital,
     resources: resources.map((r) => ({
-      id: r.id, hospitalId: r.hospitalId, resourceTypeId: r.resourceTypeId, code: r.resourceType.code,
+      id: r.id, hospitalId: r.hospitalId, resourceTypeId: r.resourceTypeId, code: r.resourceType.code, kind: r.resourceType.kind,
       available: r.available, total: r.total, isAvailable: r.isAvailable, version: r.version, updatedAt: r.updatedAt,
     })),
   };

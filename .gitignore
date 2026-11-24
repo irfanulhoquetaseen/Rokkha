@@ -36,5 +36,8 @@ yarn-error.log*
 .vercel
 .railway/
 
+# demo:race session cache (cookies)
+/.demo-race-sessions.json
+
 # superpowers SDD scratch
 /.superpowers/

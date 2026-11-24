@@ -325,7 +325,7 @@ describe("GET /api/hospitals/:hospital/stock (public)", () => {
         id: hA.hospital.id, slug: "alpha", nameBn: "alpha-bn", nameEn: "alpha-en", isDemo: true, liveDataEnabled: true,
       });
       expect(json.resources.map((r: { code: string }) => r.code)).toEqual(["ICU_BED", "ANTIVENOM"]);
-      expect(json.resources[0]).toMatchObject({ id: hA.resources.ICU_BED!.id, hospitalId: hA.hospital.id, available: 3, total: 5, version: 1 });
+      expect(json.resources[0]).toMatchObject({ id: hA.resources.ICU_BED!.id, hospitalId: hA.hospital.id, available: 3, total: 5, version: 1, kind: "COUNTABLE" });
     }
   });
 

@@ -16,7 +16,8 @@
         "db:seed": "prisma db seed",
         "postinstall": "prisma generate",
         "test:unit": "vitest run --project unit",
-        "test:integration": "vitest run --project integration"
+        "test:integration": "vitest run --project integration",
+        "demo:race": "tsx scripts/demo-race.ts"
     },
     "dependencies": {
         "@prisma/adapter-pg": "^7.10.1",
