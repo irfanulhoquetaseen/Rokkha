@@ -278,6 +278,8 @@ model SoldOutEvent {
   resourceType   ResourceType @relation(fields: [resourceTypeId], references: [id])
   conditionId    String?
   userId         String?
+  /// The reserve request's Idempotency-Key: a retried sold-out request records unmet demand once.
+  idempotencyKey String?      @unique
   createdAt      DateTime     @default(now())
 
   @@index([createdAt])

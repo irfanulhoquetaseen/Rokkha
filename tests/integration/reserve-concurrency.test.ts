@@ -5,7 +5,7 @@ import { prisma } from "@/server/db";
 import type { SessionUser } from "@/server/auth/session";
 import { reserve } from "@/server/reservations/reserve";
 import { resetDb } from "../support/db";
-import { makeHospitalWithStock, makeUser } from "../support/fixtures";
+import { makeHeld, makeHospitalWithStock, makeUser } from "../support/fixtures";
 
 // Truly parallel calls against the real test DB: every reserve() is its own interactive
 // transaction on its own pooled connection. Assertions are on DB rows, not only return values.
@@ -129,6 +129,34 @@ describe("reserve() under concurrency", { timeout: 120_000 }, () => {
     expect(codes(rs)).toEqual(["CONFLICT"]);
     expect(await prisma.reservation.count()).toBe(1);
     expect((await stockOf(h.resources.ICU_BED!.id)).available).toBe(6 - 1);
+  });
+
+  it("crossed overdue holds: two users reserve each other's rows in parallel without deadlock", async () => {
+    const x = await makeHospitalWithStock({ stock: [{ code: "ICU_BED", total: 10, available: 10 }] });
+    const y = await makeHospitalWithStock({ stock: [{ code: "GENERAL_BED", total: 10, available: 10 }] });
+    const xId = x.resources.ICU_BED!.id, yId = y.resources.GENERAL_BED!.id;
+    const [a, b] = await users(2);
+    for (let round = 0; round < 5; round++) {
+      // A holds X (overdue) and reserves Y; B holds Y (overdue) and reserves X.
+      await makeHeld({ user: a!, hospitalResourceId: xId, expiresAt: new Date(Date.now() - 1000) });
+      await makeHeld({ user: b!, hospitalResourceId: yId, expiresAt: new Date(Date.now() - 1000) });
+      const rs = await Promise.allSettled([
+        reserve(a!, { idempotencyKey: randomUUID(), body: { hospitalId: y.hospital.id, resourceCode: "GENERAL_BED" } }),
+        reserve(b!, { idempotencyKey: randomUUID(), body: { hospitalId: x.hospital.id, resourceCode: "ICU_BED" } }),
+      ]);
+      expect(codes(rs)).toEqual([]);
+      expect(fulfilled(rs)).toHaveLength(2);
+      // Each new hold took one unit; each overdue hold gave its unit back.
+      expect((await stockOf(xId)).available).toBe(9);
+      expect((await stockOf(yId)).available).toBe(9);
+      // Release the new holds for the next round.
+      await prisma.reservation.updateMany({ where: { status: "HELD" }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      for (const r of await prisma.reservation.findMany({ where: { status: "HELD" } })) {
+        await prisma.$transaction((tx) => tx.$executeRaw`UPDATE "HospitalResource" SET "available" = "available" + ${r.quantity}::int WHERE "id" = ${r.hospitalResourceId}`);
+        await prisma.reservation.update({ where: { id: r.id }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+      }
+    }
+    expect(await prisma.reservation.count({ where: { status: "EXPIRED" } })).toBe(10);
   });
 
   it("parallel reserves use distinct connections", async () => {

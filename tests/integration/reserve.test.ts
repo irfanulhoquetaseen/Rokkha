@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { HospitalResource } from "@/generated/prisma/client";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/server/db";
@@ -9,6 +9,19 @@ import { requestHash, type ReserveBody } from "@/server/reservations/schemas";
 import { cancelReservation } from "@/server/reservations/transition";
 import { resetDb } from "../support/db";
 import { makeHeld, makeHospitalWithStock, makeUser } from "../support/fixtures";
+
+// Fault injection for one test only: findAlternatives can be made to fail (everything else is real).
+const fault = vi.hoisted(() => ({ failAlternatives: false }));
+vi.mock("@/server/reservations/alternatives", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/server/reservations/alternatives")>();
+  return {
+    ...mod,
+    findAlternatives: (...args: Parameters<typeof mod.findAlternatives>) =>
+      fault.failAlternatives
+        ? Promise.reject(Object.assign(new Error("connection lost"), { code: "P1001" }))
+        : mod.findAlternatives(...args),
+  };
+});
 
 async function errOf(p: Promise<unknown>): Promise<AppError> {
   try {
@@ -32,6 +45,7 @@ let citizen: SessionUser;
 
 describe("reserve()", () => {
   beforeEach(async () => {
+    fault.failAlternatives = false;
     await resetDb();
     const h = await makeHospitalWithStock({ updatedAt: new Date(Date.now() - 5 * 60_000) });
     hospitalId = h.hospital.id;
@@ -180,6 +194,42 @@ describe("reserve()", () => {
     expect(alts[0]!.score).toEqual(expect.any(Number));
     expect(alts[0]!.available).toBe(2);
     expect(await prisma.soldOutEvent.count({ where: { conditionId: cond.id } })).toBe(1);
+  });
+
+  it("a retried sold-out request records one SoldOutEvent per idempotency key", async () => {
+    await prisma.hospitalResource.update({ where: { id: icu.id }, data: { available: 0 } });
+    const key = randomUUID();
+    for (let i = 0; i < 3; i++) expect((await errOf(call(citizen, body(hospitalId), key))).code).toBe("SOLD_OUT");
+    expect(await prisma.soldOutEvent.count()).toBe(1);
+    expect((await prisma.soldOutEvent.findFirstOrThrow()).idempotencyKey).toBe(key);
+    await errOf(call(citizen, body(hospitalId)));
+    await errOf(call(citizen, body(hospitalId)));
+    expect(await prisma.soldOutEvent.count()).toBe(3);
+  });
+
+  it("alternatives failing still answers SOLD_OUT with no alternatives", async () => {
+    await prisma.hospitalResource.update({ where: { id: icu.id }, data: { available: 0 } });
+    await makeHospitalWithStock({ stock: [{ code: "ICU_BED", total: 5, available: 5 }] });
+    fault.failAlternatives = true;
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const e = await errOf(call(citizen, body(hospitalId)));
+      expect(e.code).toBe("SOLD_OUT");
+      expect(e.details).toEqual({ alternatives: [] });
+      expect(log).toHaveBeenCalledWith("[reserve] alternatives failed", "Error", "P1001");
+    } finally {
+      log.mockRestore();
+    }
+    expect(await prisma.soldOutEvent.count()).toBe(1);
+  });
+
+  it("an overdue hold does not count toward MAX_ACTIVE", async () => {
+    const h2 = await makeHospitalWithStock({ stock: [{ code: "GENERAL_BED", total: 5, available: 5 }] });
+    await makeHeld({ user: citizen, hospitalResourceId: antivenom.id, expiresAt: new Date(Date.now() - 1000) });
+    await call(citizen, body(hospitalId, "ICU_BED"));
+    const third = await call(citizen, body(h2.hospital.id, "GENERAL_BED"));
+    expect(third.reservation.status).toBe("HELD");
+    expect((await stockOf(antivenom.id)).available).toBe(antivenom.available);
   });
 
   it("status resource cannot be held", async () => {
