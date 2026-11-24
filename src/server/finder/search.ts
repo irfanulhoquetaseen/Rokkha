@@ -22,9 +22,12 @@ type HospitalInfo = {
 
 export type DirectoryEntry = Omit<HospitalInfo, "slug"> & { distanceKm: number | null };
 
+/** A countable resource this hospital can hold right now for the chosen condition (one unit per hold). */
+export type Holdable = { code: string; nameBn: string; nameEn: string; available: number; quantity: 1; consumable: boolean };
+
 export type FinderResult = {
   condition: { code: string; nameBn: string; nameEn: string } | null;
-  results: (RankedHospital & { hospital: HospitalInfo })[];
+  results: (RankedHospital & { hospital: HospitalInfo; holdable: Holdable[] })[];
   total: number;
   page: number;
   pageSize: typeof PAGE_SIZE;
@@ -145,7 +148,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
       resources: {
         select: {
           total: true, available: true, isAvailable: true, updatedAt: true,
-          resourceType: { select: { code: true, kind: true, bloodGroup: true, nameBn: true, nameEn: true } },
+          resourceType: { select: { code: true, kind: true, consumable: true, bloodGroup: true, nameBn: true, nameEn: true } },
         },
       },
     },
@@ -225,6 +228,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
     const h = byId.get(r.hospitalId)!;
     return {
       ...r,
+      holdable: holdableFor(h.resources, requirements, params.blood ?? null, compatibleDonors),
       hospital: {
         id: h.id, slug: h.slug, nameBn: h.nameBn, nameEn: h.nameEn, type: h.type,
         freeService: h.freeService, phone: h.phone, area: h.area, district: h.district, address: h.address, isDemo: h.isDemo,
@@ -243,4 +247,55 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
     resourceIgnored,
     resourceTypes,
   };
+}
+
+type StockRow = {
+  available: number;
+  resourceType: { code: string; kind: "COUNTABLE" | "STATUS"; consumable: boolean; bloodGroup: DbBloodGroup | null; nameBn: string; nameEn: string };
+};
+
+/**
+ * What a citizen can hold here for this condition: every COUNTABLE requirement resource with stock,
+ * plus for a blood requirement ONE blood row — the patient's own group first, else the compatible
+ * donor group with the most units; unknown group → O- (universal red-cell donor) only.
+ * Not-suitable hospitals keep their holdable stock (staff decide on arrival).
+ */
+function holdableFor(
+  rows: StockRow[], requirements: MatchRequirement[], blood: BloodGroup | null, compatibleDonors: Record<BloodGroup, BloodGroup[]>,
+): Holdable[] {
+  const toHoldable = (r: StockRow): Holdable => ({
+    code: r.resourceType.code, nameBn: r.resourceType.nameBn, nameEn: r.resourceType.nameEn,
+    available: r.available, quantity: 1, consumable: r.resourceType.consumable,
+  });
+  const inStock = rows.filter((r) => r.resourceType.kind === "COUNTABLE" && r.available >= 1);
+  const out: Holdable[] = [];
+  const seen = new Set<string>();
+  for (const req of requirements) {
+    if (req.isBlood) {
+      const bloodRows = inStock.filter((r) => r.resourceType.bloodGroup !== null);
+      let pick: StockRow | undefined;
+      if (blood === null) {
+        pick = bloodRows.find((r) => r.resourceType.bloodGroup === "O_NEG");
+      } else {
+        pick = bloodRows.find((r) => r.resourceType.bloodGroup === blood);
+        if (!pick) {
+          const donors = new Set(compatibleDonors[blood]);
+          pick = bloodRows
+            .filter((r) => donors.has(r.resourceType.bloodGroup as BloodGroup))
+            .sort((a, b) => b.available - a.available || a.resourceType.code.localeCompare(b.resourceType.code))[0];
+        }
+      }
+      if (pick && !seen.has(pick.resourceType.code)) {
+        seen.add(pick.resourceType.code);
+        out.push(toHoldable(pick));
+      }
+      continue;
+    }
+    const row = req.resourceCode ? inStock.find((r) => r.resourceType.code === req.resourceCode) : undefined;
+    if (row && !seen.has(row.resourceType.code)) {
+      seen.add(row.resourceType.code);
+      out.push(toHoldable(row));
+    }
+  }
+  return out;
 }

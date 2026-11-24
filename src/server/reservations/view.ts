@@ -23,6 +23,8 @@ export type ReservationView = {
   rejectedAt: Date | null;
   expiredAt: Date | null;
   rejectedReason: string | null;
+  /** The emergency this hold was made for (null when held without one). */
+  conditionId: string | null;
   version: number;
   hospital: { id: string; slug: string; nameBn: string; nameEn: string; phone: string; isDemo: boolean };
   resource: { code: string; nameBn: string; nameEn: string; consumable: boolean };
@@ -33,7 +35,7 @@ export function toReservationView(row: ReservationViewRow): ReservationView {
   return {
     id: row.id, status: row.status, quantity: row.quantity, expiresAt: row.expiresAt, createdAt: row.createdAt,
     arrivedAt: row.arrivedAt, completedAt: row.completedAt, cancelledAt: row.cancelledAt, rejectedAt: row.rejectedAt,
-    expiredAt: row.expiredAt, rejectedReason: row.rejectedReason, version: row.version,
+    expiredAt: row.expiredAt, rejectedReason: row.rejectedReason, conditionId: row.conditionId, version: row.version,
     hospital: { ...row.hospital },
     resource: { ...row.resourceType },
     events: row.events.map((e) => ({ toStatus: e.toStatus, fromStatus: e.fromStatus, createdAt: e.createdAt, note: e.note })),

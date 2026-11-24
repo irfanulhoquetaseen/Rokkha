@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AppError } from "@/lib/errors";
-import { requireHospitalAccess } from "@/server/auth/guards";
+import { requireHospitalAccess, requireReservationOwner } from "@/server/auth/guards";
 import { SESSION_COOKIE, validateSessionToken } from "@/server/auth/session";
 import { firstAidGuideExists } from "@/server/finder/search";
 import { firstLiveHospitalId } from "@/server/resources/queries";
@@ -18,6 +18,7 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   try {
     if (pathname.startsWith("/first-aid/")) return await firstAidGate(req, pathname);
+    if (pathname === "/reservations" || pathname.startsWith("/reservations/")) return await reservationsGate(req, pathname);
     return await staffGate(req, pathname);
   } catch (e) {
     if (e instanceof AppError) return notFound(req);
@@ -44,15 +45,39 @@ async function firstAidGate(req: NextRequest, pathname: string) {
   return NextResponse.next();
 }
 
-async function staffGate(req: NextRequest, pathname: string) {
+async function sessionUser(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const user = token ? await validateSessionToken(token) : null;
+  return token ? validateSessionToken(token) : null;
+}
 
-  if (!user) {
-    const login = new URL("/login", req.url);
-    login.searchParams.set("next", pathname);
-    return NextResponse.redirect(login);
+function toLogin(req: NextRequest, pathname: string) {
+  const login = new URL("/login", req.url);
+  login.searchParams.set("next", pathname);
+  return NextResponse.redirect(login);
+}
+
+/** /reservations (any signed-in user) and /reservations/<id> (owner or admin; anything else is a real 404). */
+async function reservationsGate(req: NextRequest, pathname: string) {
+  const user = await sessionUser(req);
+  if (!user) return toLogin(req, pathname);
+  if (pathname === "/reservations" || pathname === "/reservations/") return NextResponse.next();
+
+  const m = /^\/reservations\/([^/]+)\/?$/.exec(pathname);
+  if (!m) return notFound(req);
+  let id: string;
+  try {
+    id = decodeURIComponent(m[1]!);
+  } catch {
+    return notFound(req);
   }
+  if (id.length > 64) return notFound(req);
+  await requireReservationOwner(user, id); // AppError (audited AUTHZ_DENIED) → 404 in proxy()
+  return NextResponse.next();
+}
+
+async function staffGate(req: NextRequest, pathname: string) {
+  const user = await sessionUser(req);
+  if (!user) return toLogin(req, pathname);
 
   if (pathname === "/staff" || pathname === "/staff/") {
     let target: string | null = null;
@@ -80,4 +105,6 @@ function notFound(req: NextRequest) {
   return NextResponse.rewrite(new URL("/_proxy-not-found", req.url), { status: 404 });
 }
 
-export const config = { matcher: ["/staff", "/staff/:path*", "/first-aid/:condition"] };
+export const config = {
+  matcher: ["/staff", "/staff/:path*", "/first-aid/:condition", "/reservations", "/reservations/:path*"],
+};

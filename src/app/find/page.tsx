@@ -9,11 +9,12 @@ import { FilterBar } from "@/components/finder/FilterBar";
 import { FinderSkeleton } from "@/components/finder/FinderSkeleton";
 import { FirstAidCard } from "@/components/finder/FirstAidCard";
 import { fmtNum, requestTimeMs } from "@/components/finder/format";
-import { HospitalCard } from "@/components/finder/HospitalCard";
+import { HospitalCard, type HoldContext } from "@/components/finder/HospitalCard";
 import { finderHref } from "@/components/finder/url";
 import type { Bilingual } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
 import { finder } from "@/lib/i18n/finder";
+import { getCurrentUser } from "@/server/auth/current-user";
 import { getLang } from "@/server/i18n/lang";
 import { parseFinderParams, RADIUS_OPTIONS, type FinderParams } from "@/server/finder/params";
 import { getFirstAidGuide, listConditions, searchHospitals, type FinderResult } from "@/server/finder/search";
@@ -34,7 +35,7 @@ export default function FindPage({ searchParams }: PageProps<"/find">) {
 
 /** searchParams + lang cookie + DB are request-time, so this renders inside <Suspense>. */
 async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
-  const [sp, lang] = await Promise.all([searchParams, getLang()]);
+  const [sp, lang, user] = await Promise.all([searchParams, getLang(), getCurrentUser()]);
   // Live stock + "x min ago" use the request clock: never part of a prerendered/prefetched shell.
   await connection();
   const { params, notices } = parseFinderParams(sp);
@@ -93,13 +94,28 @@ async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
         </div>
       )}
       <FilterBar params={params} resourceTypes={result.resourceTypes} lang={lang} />
-      <Results result={result} params={params} lang={lang} nowMs={nowMs} />
+      <Results
+        result={result}
+        params={params}
+        lang={lang}
+        nowMs={nowMs}
+        hold={{
+          citizen: user ? user.role === "CITIZEN" : null,
+          // Back to this exact finder URL after logging in.
+          loginHref: `/login?next=${encodeURIComponent(finderHref(params))}`,
+          conditionCode: result.condition.code,
+          bloodGroup: params.blood,
+          origin: params.lat !== undefined && params.lng !== undefined ? { lat: params.lat, lng: params.lng } : undefined,
+        }}
+      />
       <DirectoryList entries={result.directory} lang={lang} />
     </>
   );
 }
 
-function Results({ result, params, lang, nowMs }: { result: FinderResult; params: FinderParams; lang: Lang; nowMs: number }) {
+function Results({
+  result, params, lang, nowMs, hold,
+}: { result: FinderResult; params: FinderParams; lang: Lang; nowMs: number; hold: HoldContext }) {
   if (result.total === 0) return <EmptyState params={params} lang={lang} />;
 
   const lastPage = Math.max(1, Math.ceil(result.total / result.pageSize));
@@ -113,7 +129,7 @@ function Results({ result, params, lang, nowMs }: { result: FinderResult; params
       </h2>
       <ol className="flex flex-col gap-3">
         {result.results.map((item) => (
-          <HospitalCard key={item.hospitalId} item={item} lang={lang} nowMs={nowMs} />
+          <HospitalCard key={item.hospitalId} item={item} lang={lang} nowMs={nowMs} hold={hold} />
         ))}
       </ol>
       {lastPage > 1 && (

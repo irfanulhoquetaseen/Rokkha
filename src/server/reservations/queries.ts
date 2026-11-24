@@ -74,6 +74,14 @@ export async function getMyReservation(user: SessionUser | null, reservationId: 
   return toReservationView(row);
 }
 
+/** Code + names of a reservation's condition (for the tracker's first-aid link). */
+export async function getConditionSummary(
+  conditionId: string | null,
+): Promise<{ code: string; nameBn: string; nameEn: string } | null> {
+  if (!conditionId) return null;
+  return prisma.condition.findUnique({ where: { id: conditionId }, select: { code: true, nameBn: true, nameEn: true } });
+}
+
 const QUEUE_ORDER: Record<z.output<typeof queueFiltersSchema>["sort"], Prisma.ReservationOrderByWithRelationInput[]> = {
   expiresAt: [{ expiresAt: "asc" }, { id: "asc" }],
   newest: [{ createdAt: "desc" }, { id: "desc" }],

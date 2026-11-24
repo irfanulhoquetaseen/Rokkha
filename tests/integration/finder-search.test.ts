@@ -119,6 +119,55 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     expect(await suitable()).toBe(false);
   });
 
+  it("holdable lists countable requirement stock and compatible blood", async () => {
+    const h = await prisma.hospital.findUniqueOrThrow({ where: { slug: "mirpur-shastho-medical" } });
+    const set = (code: string, available: number) =>
+      prisma.hospitalResource.updateMany({ where: { hospitalId: h.id, resourceType: { code } }, data: { available } });
+    const holdable = async (blood?: string) => {
+      const r = await searchHospitals(p({ condition: "TRAUMA", area: "mirpur", radius: "5", ...(blood ? { blood } : {}) }), NOW);
+      const item = r.results.find((x) => x.hospitalId === h.id);
+      expect(item).toBeDefined();
+      return item!.holdable;
+    };
+    await set("BLOOD_A_POS", 4);
+    await set("ICU_BED", 3);
+    await set("STRETCHER", 0);
+
+    const a = await holdable("A_POS");
+    const codes = a.map((x) => x.code);
+    expect(codes).toContain("BLOOD_A_POS");
+    expect(codes).toContain("ICU_BED");
+    expect(codes).not.toContain("STRETCHER"); // none left
+    // STATUS requirements (surgeon, OT, CT) are never holdable.
+    for (const s of ["SURGEON_ON_DUTY", "OPERATION_THEATRE", "CT_SCAN"]) expect(codes).not.toContain(s);
+    // Exactly one blood row is offered.
+    expect(codes.filter((c) => c.startsWith("BLOOD_"))).toEqual(["BLOOD_A_POS"]);
+    const blood = a.find((x) => x.code === "BLOOD_A_POS")!;
+    expect(blood).toMatchObject({ quantity: 1, available: 4, consumable: true });
+    expect(blood.nameBn).toBeTruthy();
+    expect(a.find((x) => x.code === "ICU_BED")).toMatchObject({ quantity: 1, available: 3, consumable: false });
+
+    // A+ is out and the other A+ donors (A-, O+) too: fall back to O-.
+    await set("BLOOD_A_POS", 0);
+    await set("BLOOD_A_NEG", 0);
+    await set("BLOOD_O_POS", 0);
+    await set("BLOOD_O_NEG", 2);
+    const fallback = await holdable("A_POS");
+    expect(fallback.filter((x) => x.code.startsWith("BLOOD_")).map((x) => x.code)).toEqual(["BLOOD_O_NEG"]);
+
+    // Other compatible donors: the one with the most stock wins.
+    await set("BLOOD_A_NEG", 1);
+    await set("BLOOD_O_POS", 5);
+    const best = await holdable("A_POS");
+    expect(best.filter((x) => x.code.startsWith("BLOOD_")).map((x) => x.code)).toEqual(["BLOOD_O_POS"]);
+
+    // Unknown group: universal donor O- only.
+    const unknown = await holdable();
+    expect(unknown.filter((x) => x.code.startsWith("BLOOD_")).map((x) => x.code)).toEqual(["BLOOD_O_NEG"]);
+    await set("BLOOD_O_NEG", 0);
+    expect((await holdable()).some((x) => x.code.startsWith("BLOOD_"))).toBe(false);
+  });
+
   it("lists the 5 directory hospitals, nearest first when an origin is given", async () => {
     const d = await listDirectory(p({ area: "dhanmondi" }));
     expect(d).toHaveLength(5);

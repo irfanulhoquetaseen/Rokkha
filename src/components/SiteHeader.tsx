@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { LangToggle } from "@/components/LangToggle";
 import { auth } from "@/lib/i18n/auth";
+import { reservations } from "@/lib/i18n/reservations";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getLang } from "@/server/i18n/lang";
 
@@ -24,6 +25,11 @@ export async function SiteHeader() {
             <span className="max-w-[9rem] truncate text-sm font-medium sm:max-w-xs" title={user.name}>
               {user.name}
             </span>
+            {user.role === "CITIZEN" && (
+              <Link href="/reservations" data-testid="my-reservations-link" className={`${linkBtn} hover:bg-zinc-100 dark:hover:bg-zinc-800`}>
+                {reservations.myReservations[lang]}
+              </Link>
+            )}
             {user.role === "HOSPITAL_STAFF" && (
               <Link href="/staff" className={`${linkBtn} hover:bg-zinc-100 dark:hover:bg-zinc-800`}>
                 {auth.staffConsole[lang]}

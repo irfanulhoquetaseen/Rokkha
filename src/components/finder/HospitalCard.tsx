@@ -1,5 +1,7 @@
 import type { Lang } from "@/lib/i18n";
 import { finder } from "@/lib/i18n/finder";
+import { reservations } from "@/lib/i18n/reservations";
+import { HoldButton } from "@/components/reservations/HoldButton";
 import type { FinderResult } from "@/server/finder/search";
 import { STALE_AFTER_MS } from "@/server/matching";
 import { fmtAge, fmtKm, fmtNum } from "./format";
@@ -7,6 +9,16 @@ import { HospitalPhone } from "./HospitalPhone";
 import { TypeBadges } from "./TypeBadges";
 
 type Item = FinderResult["results"][number];
+
+/** Who is looking and what they searched for: shapes the hold buttons. */
+export type HoldContext = {
+  /** null = signed out; false = signed in but not a citizen (staff/admin cannot hold). */
+  citizen: boolean | null;
+  loginHref: string;
+  conditionCode: string;
+  bloodGroup?: string;
+  origin?: { lat: number; lng: number };
+};
 
 const reasonColor = {
   ok: "text-green-800 dark:text-green-300",
@@ -20,7 +32,7 @@ function scoreClass(score: number, suitable: boolean): string {
   return "bg-amber-500 text-black";
 }
 
-export function HospitalCard({ item, lang, nowMs }: { item: Item; lang: Lang; nowMs: number }) {
+export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: Lang; nowMs: number; hold: HoldContext }) {
   const h = item.hospital;
   const old =
     item.stale || (item.lastUpdatedAt !== null && nowMs - item.lastUpdatedAt.getTime() > STALE_AFTER_MS);
@@ -28,6 +40,7 @@ export function HospitalCard({ item, lang, nowMs }: { item: Item; lang: Lang; no
   return (
     <li
       data-testid="hospital-card"
+      data-hospital-id={item.hospitalId}
       data-rank={item.rank}
       className={`flex flex-col gap-3 rounded-xl border p-4 ${item.suitable ? "border-zinc-200 dark:border-zinc-800" : "border-zinc-200 bg-zinc-50 opacity-90 dark:border-zinc-800 dark:bg-zinc-900/60"}`}
     >
@@ -75,6 +88,26 @@ export function HospitalCard({ item, lang, nowMs }: { item: Item; lang: Lang; no
       </ul>
 
       <HospitalPhone phone={h.phone} isDemo={h.isDemo} name={lang === "bn" ? h.nameBn : h.nameEn} lang={lang} />
+
+      {item.holdable.length > 0 && hold.citizen !== false && (
+        <div data-testid="hold-section" className="flex flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <p className="text-sm font-bold">{reservations.holdSectionTitle[lang]}</p>
+          {/* Signed out: one login link per card (it returns here); signed in: one button per resource. */}
+          {(hold.citizen ? item.holdable : item.holdable.slice(0, 1)).map((r) => (
+            <HoldButton
+              key={r.code}
+              hospitalId={item.hospitalId}
+              resource={{ code: r.code, nameBn: r.nameBn, nameEn: r.nameEn, available: r.available }}
+              conditionCode={hold.conditionCode}
+              bloodGroup={hold.bloodGroup}
+              origin={hold.origin}
+              signedIn={hold.citizen === true}
+              loginHref={hold.loginHref}
+              lang={lang}
+            />
+          ))}
+        </div>
+      )}
     </li>
   );
 }
