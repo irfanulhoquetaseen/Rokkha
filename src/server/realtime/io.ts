@@ -1,16 +1,20 @@
 import type { IncomingMessage, Server as HttpServer } from "node:http";
 import { Server, type Socket } from "socket.io";
 import type { ErrorCode } from "@/lib/errors";
-import { sessionTokenFromCookieHeader, validateSessionToken, type SessionUser } from "@/server/auth/session";
+import {
+  hashSessionToken, sessionTokenFromCookieHeader, validateSessionHash, type SessionUser,
+} from "@/server/auth/session";
 import { isSameOrigin } from "@/server/http/origin";
+import { sessionRoom, setIO } from "./registry";
 import { authorizeRoom, roomPayloadSchema } from "./rooms";
 
-// The Socket.io server lives on globalThis so Next route handlers (same process)
-// can emit after a transaction commits: `getIO()?.to(room).emit(...)`.
-const globalForIO = globalThis as unknown as { io?: Server };
+export { getIO } from "./registry";
 
-/** Per-socket state. `token` is the raw session token: kept server-side only, never logged or emitted. */
-type SocketData = { token: string | null; userId: string | null };
+/** Most client-chosen rooms one socket may be in (its own id and session rooms not counted). */
+export const MAX_ROOMS_PER_SOCKET = 20;
+
+/** Per-socket state. Only the SHA-256 of the session token is kept, never the raw token. */
+type SocketData = { sessionHash: string | null; userId: string | null };
 
 type Ack = (res: { ok: true } | { ok: false; code: ErrorCode }) => void;
 
@@ -35,11 +39,26 @@ const dataOf = (socket: Socket): SocketData => socket.data as SocketData;
 
 async function currentUser(socket: Socket): Promise<SessionUser | null> {
   const data = dataOf(socket);
-  const { token } = data;
   // Re-validated on every subscribe, so logout (session deleted) or expiry revokes access.
-  const user = token ? await validateSessionToken(token) : null;
+  const user = data.sessionHash ? await validateSessionHash(data.sessionHash) : null;
   data.userId = user?.id ?? null;
   return user;
+}
+
+/** Rooms the client chose via subscribe (excludes the socket's own id room and its session room). */
+function clientRoomCount(socket: Socket): number {
+  const { sessionHash } = dataOf(socket);
+  const own = new Set([socket.id, ...(sessionHash ? [sessionRoom(sessionHash)] : [])]);
+  let n = 0;
+  for (const r of socket.rooms) if (!own.has(r)) n++;
+  return n;
+}
+
+/** Infra failures are logged without payloads or session data (never the token). */
+function logFailure(event: string, e: unknown): void {
+  const err = e instanceof Error ? e : new Error(String(e));
+  const code = (err as { code?: unknown }).code;
+  console.error(`[socket] ${event} failed`, { name: err.name, code: typeof code === "string" ? code : undefined, message: err.message.slice(0, 200) });
 }
 
 export function attachSocketServer(httpServer: HttpServer): Server {
@@ -56,16 +75,23 @@ export function attachSocketServer(httpServer: HttpServer): Server {
   // just means an anonymous socket: public rooms still work.
   io.use((socket, next) => {
     const data = dataOf(socket);
-    data.token = sessionTokenFromCookieHeader(socket.handshake.headers.cookie);
+    data.sessionHash = null;
     data.userId = null;
-    if (!data.token) return next();
-    validateSessionToken(data.token)
-      .then((user) => { data.userId = user?.id ?? null; })
-      .catch(() => { data.userId = null; })
+    const token = sessionTokenFromCookieHeader(socket.handshake.headers.cookie);
+    if (!token) return next();
+    const hash = hashSessionToken(token);
+    validateSessionHash(hash)
+      .then((user) => {
+        if (user) { data.sessionHash = hash; data.userId = user.id; }
+      })
+      .catch((e: unknown) => logFailure("handshake", e))
       .finally(() => next());
   });
 
   io.on("connection", (socket) => {
+    const { sessionHash } = dataOf(socket);
+    // Server-only room: deleting the session (logout/rotation/expiry) disconnects these sockets.
+    if (sessionHash) void socket.join(sessionRoom(sessionHash));
     socket.emit("server:hello", { time: new Date().toISOString() });
 
     socket.on("subscribe", async (payload: unknown, ack?: unknown) => {
@@ -73,12 +99,18 @@ export function attachSocketServer(httpServer: HttpServer): Server {
       const parsed = roomPayloadSchema.safeParse(payload);
       if (!parsed.success) return reply({ ok: false, code: "VALIDATION_ERROR" });
       const { room } = parsed.data;
+      if (!socket.rooms.has(room) && clientRoomCount(socket) >= MAX_ROOMS_PER_SOCKET) {
+        return reply({ ok: false, code: "LIMIT_REACHED" });
+      }
       try {
         const user = await currentUser(socket);
         if (!(await authorizeRoom(user, room))) return reply({ ok: false, code: "NOT_FOUND" });
+        // The session may have been revoked (socket disconnected) while we awaited.
+        if (!socket.connected) return;
         await socket.join(room);
         reply({ ok: true });
-      } catch {
+      } catch (e) {
+        logFailure("subscribe", e);
         reply({ ok: false, code: "INTERNAL" });
       }
     });
@@ -87,15 +119,16 @@ export function attachSocketServer(httpServer: HttpServer): Server {
       const reply: Ack = typeof ack === "function" ? (ack as Ack) : () => {};
       const parsed = roomPayloadSchema.safeParse(payload);
       if (!parsed.success) return reply({ ok: false, code: "VALIDATION_ERROR" });
-      await socket.leave(parsed.data.room);
-      reply({ ok: true });
+      try {
+        await socket.leave(parsed.data.room);
+        reply({ ok: true });
+      } catch (e) {
+        logFailure("unsubscribe", e);
+        reply({ ok: false, code: "INTERNAL" });
+      }
     });
   });
 
-  globalForIO.io = io;
+  setIO(io);
   return io;
-}
-
-export function getIO(): Server | undefined {
-  return globalForIO.io;
 }

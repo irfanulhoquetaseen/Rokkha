@@ -7,13 +7,23 @@ import type { Server as IOServer } from "socket.io";
 
 // `connection()` only works inside a Next request scope; route handlers are called directly here.
 vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), connection: async () => {} }));
+// The logout route reads/clears the cookie through next/headers; back it with a per-test jar.
+const cookieJar = new Map<string, string>();
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => (cookieJar.has(name) ? { name, value: cookieJar.get(name)! } : undefined),
+    set: (name: string, value: string) => { if (value) cookieJar.set(name, value); else cookieJar.delete(name); },
+  }),
+}));
 
 import { prisma } from "@/server/db";
 import { createSession, deleteSession, SESSION_COOKIE, type SessionUser } from "@/server/auth/session";
 import { attachSocketServer } from "@/server/realtime/io";
 import { reserve } from "@/server/reservations/reserve";
 import { cancelReservation } from "@/server/reservations/transition";
+import { MAX_ROOMS_PER_SOCKET } from "@/server/realtime/io";
 import { PATCH } from "@/app/api/staff/resources/[resourceId]/route";
+import { POST as LOGOUT } from "@/app/api/auth/logout/route";
 import { resetDb } from "../support/db";
 import { makeHeld, makeHospitalWithStock, makeUser } from "../support/fixtures";
 
@@ -28,6 +38,7 @@ const clients: Socket[] = [];
 
 beforeEach(async () => {
   await resetDb();
+  cookieJar.clear();
   prevIO = globalForIO.io;
   httpServer = createServer();
   ioServer = attachSocketServer(httpServer);
@@ -137,10 +148,11 @@ describe("realtime sockets", () => {
     const c = await client();
     expect(await subscribe(c, { room: "finder" })).toEqual({ ok: true });
     const icu = resources.ICU_BED!;
-    const seenInDb = new Promise<{ ev: Record<string, unknown>; dbAvailable: number; dbVersion: number }>((resolve) => {
+    const seenInDb = new Promise<{ ev: Record<string, unknown>; dbAvailable: number; dbVersion: number }>((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("timeout waiting for stock:changed")), 5000);
       c.once("stock:changed", (ev: Record<string, unknown>) => {
-        void prisma.hospitalResource.findUniqueOrThrow({ where: { id: icu.id } })
-          .then((row) => resolve({ ev, dbAvailable: row.available, dbVersion: row.version }));
+        prisma.hospitalResource.findUniqueOrThrow({ where: { id: icu.id } })
+          .then((row) => { clearTimeout(t); resolve({ ev, dbAvailable: row.available, dbVersion: row.version }); }, reject);
       });
     });
     await reserve(citizen, { idempotencyKey: randomUUID(), body: { hospitalId: hospital.id, resourceCode: "ICU_BED" } });
@@ -185,8 +197,72 @@ describe("realtime sockets", () => {
     const token = await tokenFor(staff);
     const c = await client(token);
     expect(await subscribe(c, { room: `staff:${hospital.id}` })).toEqual({ ok: true });
-    await deleteSession(token);
+    // Every subscribe re-validates: a session row gone by any path (here a raw delete that skips
+    // the socket revocation) no longer authorizes private rooms.
+    await prisma.session.deleteMany({ where: { userId: staff.id } });
     expect(await subscribe(c, { room: `staff:${hospital.id}` })).toEqual({ ok: false, code: "NOT_FOUND" });
+
+    // deleteSession (logout path) also disconnects; reconnecting with the dead cookie stays anonymous.
+    const token2 = await tokenFor(staff);
+    const c2 = await client(token2);
+    const gone = nextEvent<string>(c2, "disconnect");
+    await deleteSession(token2);
+    expect(await gone).toBe("io server disconnect");
+    const c3 = await client(token2);
+    expect(await subscribe(c3, { room: `staff:${hospital.id}` })).toEqual({ ok: false, code: "NOT_FOUND" });
+  });
+
+  it("logout disconnects the session's sockets, so private rooms stop receiving", async () => {
+    const { resources } = await makeHospitalWithStock();
+    const owner = await makeUser("CITIZEN");
+    const admin = await makeUser("ADMIN");
+    const r = await makeHeld({ user: owner, hospitalResourceId: resources.ICU_BED!.id });
+    const token = await tokenFor(owner);
+    const c = await client(token);
+    expect(await subscribe(c, { room: `reservation:${r.id}` })).toEqual({ ok: true });
+    let received = 0;
+    c.on("reservation:changed", () => { received++; });
+    const disconnected = nextEvent<string>(c, "disconnect");
+
+    cookieJar.set(SESSION_COOKIE, token);
+    const res = await LOGOUT(new Request("http://localhost/api/auth/logout", {
+      method: "POST", headers: { origin: "http://localhost", host: "localhost" },
+    }), undefined as never);
+    expect(res.status).toBe(200);
+    expect(await disconnected).toBe("io server disconnect");
+
+    await cancelReservation(admin, r.id);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(received).toBe(0);
+    expect(ioServer.sockets.adapter.rooms.get(`reservation:${r.id}`)).toBeUndefined();
+  });
+
+  it("clients cannot subscribe to or leave internal session rooms", async () => {
+    const owner = await makeUser("CITIZEN");
+    const token = await tokenFor(owner);
+    const c = await client(token);
+    expect(await subscribe(c, { room: `session:${"a".repeat(64)}` })).toEqual({ ok: false, code: "VALIDATION_ERROR" });
+    const sessionRooms = [...ioServer.sockets.adapter.rooms.keys()].filter((k) => k.startsWith("session:"));
+    expect(sessionRooms).toHaveLength(1);
+    expect(await c.timeout(5000).emitWithAck("unsubscribe", { room: sessionRooms[0] })).toEqual({ ok: false, code: "VALIDATION_ERROR" });
+    expect(ioServer.sockets.adapter.rooms.get(sessionRooms[0]!)?.size).toBe(1);
+    // socket.data holds only the session hash, never the raw token.
+    const [srv] = await ioServer.fetchSockets();
+    expect(JSON.stringify(srv!.data)).not.toContain(token);
+    expect(srv!.data).toMatchObject({ userId: owner.id });
+  });
+
+  it("caps rooms per socket with LIMIT_REACHED", async () => {
+    const c = await client(await tokenFor(await makeUser("CITIZEN")));
+    expect(MAX_ROOMS_PER_SOCKET).toBe(20);
+    for (let i = 0; i < MAX_ROOMS_PER_SOCKET; i++) {
+      expect(await subscribe(c, { room: `hospital:h${i}` })).toEqual({ ok: true });
+    }
+    // Re-subscribing to a joined room is still fine; a new one is refused.
+    expect(await subscribe(c, { room: "hospital:h0" })).toEqual({ ok: true });
+    expect(await subscribe(c, { room: "finder" })).toEqual({ ok: false, code: "LIMIT_REACHED" });
+    expect(await c.timeout(5000).emitWithAck("unsubscribe", { room: "hospital:h0" })).toEqual({ ok: true });
+    expect(await subscribe(c, { room: "finder" })).toEqual({ ok: true });
   });
 
   it("invalid payload acks VALIDATION_ERROR", async () => {
