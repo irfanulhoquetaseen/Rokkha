@@ -1,7 +1,7 @@
 # PROGRESS
 
 ## Current phase
-P1 + P2 + P3: **done** (24 Nov 2026). Next: **P4 reservation engine (A05)**.
+P1–P5: **done** and verified live (25 Nov 2026, deploy `ceaacc7`). Report: `docs/reports/P4-P5.md`. Next: **P6**.
 
 ## Done
 - **P0** Foundation: Next.js 16.4.6 + custom `server.ts` (Next + Socket.io 4.8.4 on one port), Prisma 7.10.1 + Postgres 18 on Railway Singapore, `/api/health`, live deploy. Auto-deploy on push to `main` proven (GitHub trigger on the `web` service).
@@ -13,30 +13,34 @@ P1 + P2 + P3: **done** (24 Nov 2026). Next: **P4 reservation engine (A05)**.
 - **P3** Matching engine (pure, unit-tested): CRITICAL/PREFERRED weights, blood resolved by recipient group (unknown → O− only), stale penalty, Haversine distance, score 0–100, rank, bn/en reasons. Public Finder (no login): 8 condition buttons, blood group, area or GPS, radius, govt/private, free only, resource, sort (score/distance/freshness), pagination, notices, empty state; first-aid card (do's/don'ts, Call 999, source link, disclaimer); "Unverified — call before going" directory section.
 - **P4 Task 7** Citizen UI: hold buttons on Finder cards (per-result `holdable`: countable requirement stock + best compatible blood row), login round-trip, sold-out panel with alternatives, LIMIT_REACHED message, double-click-safe idempotency key; `/reservations/[id]` tracker (server-clock countdown, inline two-tap cancel, timeline, first-aid link) and `/reservations` list; proxy gives real 307/404.
 - **P4 Task 8** Staff reservation queue under the resource console (first page server-rendered): debounced search (name/phone/id), status filter (Active/Held/Arrived/Completed/Rejected/Cancelled/Expired/All), sort (expires soonest/newest/oldest), prev/next; per row name + phone, resource × qty, status badge, countdown; HELD → Check in / Reject (reason ≥ 3 chars, submit disabled until valid), ARRIVED → Complete; INVALID_TRANSITION shows the bn/en message and refetches. Rows never regress to an older `version` (a list GET racing a transition). Action buttons disabled until hydrated. Index migration `p4_reservation_sort_indexes`; AUTHZ_DENIED `entityId` truncated to 64 chars. Staff E2E restores COUNTABLE rows by inverse `adjust` of the net delta (409 → retry), STATUS rows by `status`.
-- **P5 Task 1** Socket.io auth + room authorization: handshake resolves the session cookie (raw token kept server-side on `socket.data`); `subscribe`/`unsubscribe` Zod-validated (`{ room }` regex), session re-validated on every subscribe (logout revokes), `authorizeRoom` (`src/server/realtime/rooms.ts`): `finder`/`hospital:*` public, `staff:{id}` own-hospital staff or admin, `reservation:{id}` owner or admin; denial → ack `NOT_FOUND` + `AUTHZ_DENIED` audit. Cross-origin handshakes refused (`allowRequest` + `isSameOrigin`). Each socket joins an internal `session:{sha256}` room at handshake (only the hash is kept on `socket.data`); deleting a session (logout, login rotation, expiry) disconnects its sockets. Max 20 client rooms per socket (`LIMIT_REACHED`). `reservation:changed` payload trimmed to `{ id, status, version, hospitalId, expiresAt }`; staff resource updates publish `stock:changed` after commit.
+- **P5 Task 1** Socket.io auth + room authorization: handshake resolves the session cookie (only the session hash is kept on `socket.data`); `subscribe`/`unsubscribe` Zod-validated (`{ room }` regex), session re-validated on every subscribe (logout revokes), `authorizeRoom` (`src/server/realtime/rooms.ts`): `finder`/`hospital:*` public, `staff:{id}` own-hospital staff or admin, `reservation:{id}` owner or admin; denial → ack `NOT_FOUND` + `AUTHZ_DENIED` audit. Cross-origin handshakes refused (`allowRequest` + `isSameOrigin`). Each socket joins an internal `session:{sha256}` room at handshake (only the hash is kept on `socket.data`); deleting a session (logout, login rotation, expiry) disconnects its sockets. Max 20 client rooms per socket (`LIMIT_REACHED`). `reservation:changed` payload trimmed to `{ id, status, version, hospitalId, expiresAt }`; staff resource updates publish `stock:changed` after commit.
 - **P5 Task 3** Live Finder + public hospital page: `FinderLive` island (room `finder`; relevant `stock:changed` passing the version gate → coalesced 300 ms `router.refresh()`, refresh on every (re)connect, one reconnect banner); `searchHospitals` exposes `relevantCodes` + `stockVersions`; card names link to `/hospitals/<slug>` (public: header, phone, Call 999, `LiveStockTable` updating rows in place from `hospital:{id}`, snapshot refetch on connect, reduced-motion-safe flash; proxy gives a real 404 for unknown hospitals); `hold-available` counts on cards. Fix round: sold-out requirement rows stay on cards as disabled "Sold out" buttons (open SOLD_OUT panels survive refreshes); refreshes run in a transition, never overlap, max 1 s wait; events filtered to candidate hospitals; polite live-region "updated HH:MM"; hospital page title. /find first-load JS 144.5 KB gzip.
 - **P5 Task 4** Live staff console + queue + citizen tracker: `ResourceConsole` subscribes `staff:{hospitalId}` (version gate, snapshot refetch on connect, one reconnect banner, polite "Stock updated" line). An open Set form the user typed into freezes its row at the form's base version: live values are held back and a bn+en "Changed by someone else" hint shows, so Save gets the 409 conflict panel; an untouched open form re-keys to live values; +/− and switches use the latest live version; an open conflict panel shows the newest server value. `ReservationQueue` refetches the current page (coalesced, no dimming) on newer `reservation:changed` and on connect. `Tracker` subscribes `reservation:{id}` and refetches on newer events / connect, so ARRIVED/REJECTED/EXPIRED/COMPLETED show instantly. E2E `realtime-staff.spec.ts` (racers 106/107, Dhanmondi BLOOD_AB_NEG/BLOOD_B_NEG). The stale-page tests in staff.spec/staff-queue.spec now cut the page's socket (a live page is no longer stale).
 
+- **P4** Reservation engine (A05): state machine (CAS transitions), `reserve()` in one transaction (advisory lock → per-user limits → conditional decrement → reservation + event + audit; SOLD_OUT with 3 alternatives), Idempotency-Key, clamped stock return, expiry sweeper (30 s + boot + lazy), FK `Reservation.userId`, hold-aware `SEED_RESET_STOCK`, `npm run demo:race`.
+- **P5 Task 2/5** Client socket core (version gate, coalescer, reconnect banner, refetch on (re)connect and on `online`); multi-context acceptance E2E (`realtime-acceptance.spec.ts`).
+- **P5 final wave** (`ceaacc7`): no false "changed elsewhere" hint from a staff member's own save echo; signed-out Finder card with only sold-out rows says "Nothing left to hold here"; room cap re-checked right before `socket.join`. Task 6 (presence) skipped.
+
 ## Next
-- **P4** reservation engine (A05) + state machine + expiry sweeper + staff reservation queue (check-in / reject / complete).
-- **P5** real-time sync (A01). **P6** admin/audit/analytics/i18n/PWA. **P7** hardening.
+- **P6** admin/audit/analytics/i18n/PWA. **P7** hardening.
 
 ## Known issues
 - Bangla first-aid text needs a native-speaker proofread (content is sourced and reviewed for fidelity, translation not proofread by a native speaker).
 - `npm audit`: 3 high in `effect` (Prisma 7 CLI config loader; dev/CLI only). Accepted.
 - Prisma CLI "update available → 8.0.0-rc" banner: ignore.
 - Lighthouse is not yet measured on live: the agent sandbox blocks downloading/running it. Run: `npx lighthouse "https://web-production-3fb89dc8.up.railway.app/find?condition=STROKE" --only-categories=performance,accessibility --form-factor=mobile --view`. (Playwright-throttled local measurement: LCP ≈ 1.7 s, CLS 0, ~141 KB JS.)
-- Seeded demo data goes stale (> 30 min) because nothing updates it between demos. Refresh right before judging with `SEED_RESET_STOCK=1 npm run db:seed` (only while no holds are active), or add an automatic refresh in P4/P7.
+- Seeded demo data goes stale (> 30 min) because nothing updates it between demos. Refresh right before judging with `SEED_RESET_STOCK=1 npm run db:seed` (hold-aware since P4), or add an automatic refresh in P7.
+- Railway `LOGIN_LIMIT_PER_IP=300` (per 15 min) is set for live E2E and for judges behind one NAT; per-phone limit stays 5.
+- E2E: under full parallel load (mobile + desktop, remote DB) 4 mobile realtime/queue tests timed out once (110/114); all 4 pass serially. Timing flakiness, not product bugs.
+- Live E2E asserts exact stock counts; it may fail if someone reserves the same demo rows at the same time (judges).
+- Realtime minors: new resource/queue rows added after page load aren't live (refresh needed); Finder list can reorder under the thumb on a live refresh; an untouched focused Set form re-mounts on a live value (mobile keyboard closes); queue shows an alert if a live refetch fails; tracker does a double GET on mount; `online` handler may show "connected" until the ping timeout if the transport is dead; logout re-joins old rooms anonymously (harmless warnings).
+- No presence indicator ("X is editing") — skipped stretch.
 - Directory section lists only directory-only hospitals and is unpaginated (5 rows); full "browse all hospitals" directory is tracked for P6.
 - Live Finder: the sold-out row kept on a card is the patient's preferred blood row; if a citizen loses the race for a *different* compatible donor group, a refresh may re-pick the blood row and unmount that button (beds/vaccines etc. are unaffected).
 - Finder ranks all live hospitals in memory per request (fine at 20 live hospitals; document scale assumption in P7).
 
-## Must-do in P4 (load-bearing, carried from reviews)
-- Returning stock on CANCELLED/EXPIRED/REJECTED must clamp: `available = LEAST(total, available + qty)` — staff `set`/`adjust` don't know about held stock.
-- `SEED_RESET_STOCK=1` must subtract active HELD/ARRIVED quantities (or refuse while holds exist). Until then: use it only before a demo with no active holds.
-- Add FK `Reservation.userId → User`.
-- Expiry sweeper (on boot) must tolerate a fresh/unmigrated DB (E2E dev server boots before global-setup migrates).
-- ~~Staff E2E restore should use inverse `adjust`~~ (done in Task 8).
+## Must-do in P4
+All done in P4 (clamped returns, hold-aware seed reset, FK, sweeper tolerates unmigrated DB, inverse-adjust restore).
 
 ## Decisions log
 - 24 Nov: **Prisma 7.10.1** (latest stable), not 8.0.0-rc.
