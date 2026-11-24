@@ -84,7 +84,8 @@ export function ReservationQueue({
   // Action buttons stay disabled until hydrated: a tap on server HTML would otherwise do nothing.
   const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
-  const load = useCallback(async () => {
+  /** `keepError`: the refetch right after a failed action keeps that action's message visible. */
+  const load = useCallback(async (keepError = false) => {
     const mine = ++seq.current;
     setLoading(true);
     const sp = new URLSearchParams({ status, sort, page: String(page) });
@@ -94,6 +95,7 @@ export function ReservationQueue({
     setLoading(false);
     if (res.ok) {
       setData((d) => ({ ...res.data, items: mergeNewer(d.items, res.data.items) }));
+      if (!keepError) setError(null);
       // A shrunk result (e.g. rows left the filter) can leave us past the last page.
       const last = Math.max(1, Math.ceil(res.data.total / res.data.pageSize));
       if (res.data.page > last) setPage(last);
@@ -155,7 +157,7 @@ export function ReservationQueue({
       if (res.error.code === "INVALID_TRANSITION" || res.error.code === "NOT_FOUND") {
         setRejectingId(null);
         setReason("");
-        await load();
+        await load(true);
       }
     } else {
       setError(staff.networkError);
@@ -212,8 +214,10 @@ export function ReservationQueue({
           <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {data.items.map((r) => {
               const busy = busyId === r.id;
-              const off = busy || !hydrated;
+              // One action at a time across the whole list, and nothing before hydration.
+              const off = busyId !== null || !hydrated;
               const left = new Date(r.expiresAt).getTime() - nowMs;
+              const timeUp = r.status === "HELD" && left <= 0;
               const rejecting = rejectingId === r.id;
               return (
                 <li
@@ -244,7 +248,7 @@ export function ReservationQueue({
                     <p className="text-sm text-red-900 dark:text-red-300">{rt.rejectedReason[lang]}: {r.rejectedReason}</p>
                   )}
 
-                  {r.status === "HELD" && !rejecting && (
+                  {r.status === "HELD" && !rejecting && !timeUp && (
                     <div className="grid grid-cols-2 gap-2">
                       <button type="button" disabled={off} aria-busy={busy} onClick={() => act(r, "checkIn")} className={`${btn} bg-blue-700 text-white hover:bg-blue-800`}>
                         {busy ? staff.working[lang] : staff.checkIn[lang]}
@@ -272,7 +276,7 @@ export function ReservationQueue({
                         <button type="button" disabled={off} onClick={() => setRejectingId(null)} className={`${btn} border-2 border-zinc-700 dark:border-zinc-300`}>
                           {staff.cancel[lang]}
                         </button>
-                        <button type="submit" disabled={off || !reasonOk} aria-busy={busy} className={`${btn} bg-red-700 text-white hover:bg-red-800`}>
+                        <button type="submit" disabled={off || !reasonOk || timeUp} aria-busy={busy} className={`${btn} bg-red-700 text-white hover:bg-red-800`}>
                           {busy ? staff.working[lang] : staff.rejectSubmit[lang]}
                         </button>
                       </div>

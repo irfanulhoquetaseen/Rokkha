@@ -6,15 +6,19 @@ import { HOSPITALS } from "../../prisma/data/hospitals";
 
 // Account allocation (global constraints): mobile and desktop run in parallel on one DB and never share holds.
 const CITIZEN = { mobile: "01700000023", desktop: "01700000101" } as const;
+// Dhanmondi row allocation: no other spec (nor the other project) touches these rows, so stock checks are
+// exact. Both are non-consumable, so Complete returns the unit. reservations.spec uses GENERAL_BED/ICU_BED,
+// staff.spec CCU_BED/NICU_BED/OXYGEN_CYLINDER/PLATELETS.
+const ROW = { mobile: "VENTILATOR", desktop: "STRETCHER" } as const;
 const DHANMONDI_STAFF = "01700000011";
 const MIRPUR_STAFF = "01700000012";
 const DHANMONDI = HOSPITALS.find((h) => h.slug === "dhanmondi-care-general")!;
-const CODE = "GENERAL_BED";
 
 // Both tests use this project's citizen: run them in order.
 test.describe.configure({ mode: "default" });
 
 const citizenPhone = (info: TestInfo = test.info()) => CITIZEN[info.project.name as keyof typeof CITIZEN];
+const code = (info: TestInfo = test.info()) => ROW[info.project.name as keyof typeof ROW];
 const baseURL = () => test.info().project.use.baseURL!;
 const origin = () => new URL(baseURL()).origin;
 
@@ -42,7 +46,7 @@ async function stock(req: APIRequestContext): Promise<number> {
   const res = await req.get(`/api/hospitals/${DHANMONDI.slug}/stock`);
   expect(res.ok()).toBeTruthy();
   const { resources } = (await res.json()) as { resources: { code: string; available: number }[] };
-  return resources.find((r) => r.code === CODE)!.available;
+  return resources.find((r) => r.code === code())!.available;
 }
 
 async function dhanmondiId(req: APIRequestContext): Promise<string> {
@@ -52,7 +56,7 @@ async function dhanmondiId(req: APIRequestContext): Promise<string> {
 
 async function hold(citizen: APIRequestContext, hospitalId: string): Promise<string> {
   const res = await citizen.post("/api/reservations", {
-    data: { hospitalId, resourceCode: CODE },
+    data: { hospitalId, resourceCode: code() },
     headers: { Origin: origin(), "Idempotency-Key": randomUUID() },
   });
   expect(res.status(), await res.text()).toBe(201);
@@ -94,6 +98,7 @@ test("staff checks in and completes a hold, then rejects one with a reason; stoc
 
   const start = await stock(citizen);
   const first = await hold(citizen, hid);
+  expect(await stock(citizen)).toBe(start - 1);
   await openQueue(page);
 
   // Narrow the list to this project's citizen (the other project uses the same hospital in parallel).
@@ -106,14 +111,15 @@ test("staff checks in and completes a hold, then rejects one with a reason; stoc
 
   await r1.getByRole("button", { name: staff.checkIn.bn }).click();
   await expect(r1.getByTestId("queue-status")).toHaveAttribute("data-status", "ARRIVED");
+  expect(await stock(citizen), "check-in keeps the unit").toBe(start - 1);
   await r1.getByRole("button", { name: staff.complete.bn }).click();
   await expect(r1.getByTestId("queue-status")).toHaveAttribute("data-status", "COMPLETED");
-  // GENERAL_BED is non-consumable: completing frees the bed. Other specs hold Dhanmondi beds in parallel,
-  // so wait for the count to settle back rather than reading it once.
-  await expect.poll(() => stock(citizen), { timeout: 20_000 }).toBe(start);
+  // Non-consumable: completing frees the unit (discharge).
+  expect(await stock(citizen), "complete returns a non-consumable").toBe(start);
 
   // Second hold → reject needs a reason (≥ 3 chars).
   const second = await hold(citizen, hid);
+  expect(await stock(citizen)).toBe(start - 1);
   await queue(page).getByLabel(staff.queueStatus.bn).selectOption("HELD");
   const r2 = rowOf(page, second);
   await expect(r2).toBeVisible();
@@ -127,7 +133,7 @@ test("staff checks in and completes a hold, then rejects one with a reason; stoc
   await submit.click();
   await expect(r2.getByTestId("queue-status")).toHaveAttribute("data-status", "REJECTED");
   await expect(r2).toContainText("No bed after all");
-  await expect.poll(() => stock(citizen), { timeout: 20_000 }).toBe(start);
+  expect(await stock(citizen), "reject returns the unit").toBe(start);
 
   // Status filter "All" + newest first + search by phone finds both, with their final statuses (server
   // truth after reload). Newest first: this citizen keeps older reservations from earlier runs.

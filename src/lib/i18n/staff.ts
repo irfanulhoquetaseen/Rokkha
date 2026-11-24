@@ -55,7 +55,6 @@ export const staff = {
   rejectReason: { bn: "প্রত্যাখ্যানের কারণ (কমপক্ষে ৩ অক্ষর)", en: "Reason for rejecting (at least 3 characters)" },
   rejectSubmit: { bn: "প্রত্যাখ্যান নিশ্চিত করুন", en: "Confirm reject" },
   working: { bn: "হচ্ছে…", en: "Working…" },
-  loading: { bn: "লোড হচ্ছে…", en: "Loading…" },
 } as const satisfies Record<string, Bilingual>;
 
 /** Strings with a number inside. */

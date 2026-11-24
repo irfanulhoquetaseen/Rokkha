@@ -19,10 +19,12 @@ function staffPassword(): string {
 // (≤ 2 concurrent logins per project, ≤ 4 overall).
 test.describe.configure({ mode: "default" });
 
-// mobile and desktop run in parallel against the same DB: each project mutates its OWN rows.
+// mobile and desktop run in parallel against the same DB: each project mutates its OWN Dhanmondi rows.
+// Dhanmondi row allocation across specs (no two touch the same row): reservations.spec GENERAL_BED +
+// ICU_BED; staff-queue.spec VENTILATOR (mobile) / STRETCHER (desktop); this spec the rows below.
 const ROWS = {
-  mobile: { step: "CCU_BED", conflict: "VENTILATOR", status: "CT_SCAN" },
-  desktop: { step: "NICU_BED", conflict: "STRETCHER", status: "CATH_LAB" },
+  mobile: { step: "CCU_BED", conflict: "OXYGEN_CYLINDER", status: "CT_SCAN" },
+  desktop: { step: "NICU_BED", conflict: "PLATELETS", status: "CATH_LAB" },
 } as const;
 const rowsFor = (info: TestInfo) => ROWS[info.project.name as keyof typeof ROWS];
 
@@ -70,17 +72,25 @@ const RESTORE_ATTEMPTS = 5;
 test.afterEach(async () => {
   for (const { page, hospitalId, original: o, net } of toRestore.splice(0)) {
     if (o.kind === "COUNTABLE" && net === 0) continue;
-    for (let attempt = 0; attempt < RESTORE_ATTEMPTS; attempt++) {
+    let restored = false;
+    for (let attempt = 0; attempt < RESTORE_ATTEMPTS && !restored; attempt++) {
       const now = await apiRow(page, hospitalId, o.code);
-      if (o.kind === "STATUS" && now.isAvailable === o.isAvailable) break;
+      if (o.kind === "STATUS" && now.isAvailable === o.isAvailable) {
+        restored = true;
+        break;
+      }
       const change = o.kind === "STATUS" ? { op: "status", isAvailable: o.isAvailable } : { op: "adjust", delta: -net };
       const res = await page.request.patch(`/api/staff/resources/${o.id}`, {
         data: { version: now.version, change }, headers: { Origin: origin() },
       });
-      if (res.ok()) break;
+      if (res.ok()) {
+        restored = true;
+        break;
+      }
       // 409 = someone else (a hold, the other project) bumped the version: re-read and retry.
       expect(res.status(), `restore ${o.code}: ${await res.text()}`).toBe(409);
     }
+    if (!restored) throw new Error(`restore ${o.code}: every attempt hit 409 (version kept changing)`);
   }
 });
 
