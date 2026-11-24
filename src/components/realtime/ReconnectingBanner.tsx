@@ -1,0 +1,17 @@
+import { type Lang, pick } from "@/lib/i18n";
+import { realtime } from "@/lib/i18n/realtime";
+import type { LiveState } from "./socket";
+
+/** Sticky, high-contrast, non-interactive notice shown only while a live island is reconnecting. */
+export function ReconnectingBanner({ state, lang }: { state: LiveState; lang: Lang }) {
+  if (state !== "reconnecting") return null;
+  return (
+    <div
+      role="status"
+      data-testid="reconnecting-banner"
+      className="sticky top-0 z-50 flex min-h-11 items-center justify-center bg-amber-300 px-4 py-2 text-center text-base font-semibold text-black"
+    >
+      {pick(lang, realtime.reconnecting)}
+    </div>
+  );
+}
