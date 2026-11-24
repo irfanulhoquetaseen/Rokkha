@@ -35,6 +35,16 @@ export async function SiteHeader() {
                 {auth.staffConsole[lang]}
               </Link>
             )}
+            {user.role === "ADMIN" && (
+              <>
+                <Link href="/staff" className={`${linkBtn} hover:bg-zinc-100 dark:hover:bg-zinc-800`}>
+                  {auth.staffConsole[lang]}
+                </Link>
+                <Link href="/admin" data-testid="admin-link" className={`${linkBtn} bg-purple-700 text-white hover:bg-purple-800`}>
+                  {auth.adminPanel[lang]}
+                </Link>
+              </>
+            )}
             <LogoutButton lang={lang} />
           </>
         ) : (
