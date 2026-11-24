@@ -51,3 +51,4 @@ const MIN = 60 * 1000;
 export const loginLimiterByPhone = createRateLimiter({ limit: envLimit("LOGIN_LIMIT_PER_PHONE", 5), windowMs: 15 * MIN });
 export const loginLimiterByIp = createRateLimiter({ limit: envLimit("LOGIN_LIMIT_PER_IP", 30), windowMs: 15 * MIN });
 export const signupLimiterByIp = createRateLimiter({ limit: envLimit("SIGNUP_LIMIT_PER_IP", 10), windowMs: 60 * MIN });
+export const reserveLimiterByUser = createRateLimiter({ limit: envLimit("RESERVE_LIMIT_PER_USER", 20), windowMs: 60_000 });

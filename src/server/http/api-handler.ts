@@ -19,9 +19,19 @@ export function apiHandler<C>(
       return await fn(req, ctx);
     } catch (err) {
       const { status, body } = toErrorBody(err);
-      return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+      const headers: Record<string, string> = { "Cache-Control": "no-store" };
+      const retryAfter = retryAfterSec(err);
+      if (retryAfter !== null) headers["Retry-After"] = String(retryAfter);
+      return NextResponse.json(body, { status, headers });
     }
   };
+}
+
+/** RATE_LIMITED errors carry `details.retryAfterSec`; surface it as the standard Retry-After header. */
+function retryAfterSec(err: unknown): number | null {
+  if (!(err instanceof AppError) || err.code !== "RATE_LIMITED") return null;
+  const sec = (err.details as { retryAfterSec?: unknown } | undefined)?.retryAfterSec;
+  return typeof sec === "number" && Number.isFinite(sec) && sec > 0 ? Math.ceil(sec) : null;
 }
 
 export async function parseBody<T>(req: Request, schema: ZodType<T>): Promise<T> {
