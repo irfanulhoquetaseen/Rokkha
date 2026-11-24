@@ -73,6 +73,7 @@ model User {
   hospitalId   String?
   hospital     Hospital? @relation(fields: [hospitalId], references: [id])
   sessions     Session[]
+  reservations Reservation[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -99,6 +100,7 @@ model Hospital {
   type            HospitalType
   freeService     Boolean
   liveDataEnabled Boolean            @default(true)
+  isDemo          Boolean            @default(false)
   phone           String
   division        String
   district        String
@@ -210,6 +212,7 @@ model FirstAidGuide {
 model Reservation {
   id                 String             @id @default(cuid())
   userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   hospitalId         String
   hospital           Hospital           @relation(fields: [hospitalId], references: [id])
   resourceTypeId     String
@@ -221,10 +224,13 @@ model Reservation {
   status             ReservationStatus  @default(HELD)
   expiresAt          DateTime
   idempotencyKey     String             @unique
+  requestHash        String
   version            Int                @default(1)
   arrivedAt          DateTime?
   completedAt        DateTime?
   cancelledAt        DateTime?
+  rejectedAt         DateTime?
+  expiredAt          DateTime?
   rejectedReason     String?
   events             ReservationEvent[]
   createdAt          DateTime           @default(now())

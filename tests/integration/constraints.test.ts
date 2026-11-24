@@ -26,7 +26,7 @@ function resv(b: Awaited<ReturnType<typeof seedBasics>>, key: string, over: Reco
   return {
     userId: b.user.id, hospitalId: b.hospital.id, resourceTypeId: b.icu.id,
     hospitalResourceId: b.hr.id, expiresAt: new Date(Date.now() + 1800000),
-    idempotencyKey: key, ...over,
+    idempotencyKey: key, requestHash: "h", ...over,
   };
 }
 
@@ -76,6 +76,13 @@ describe("DB constraints", () => {
         data: { conditionId: c.id, isBlood: false, level: "CRITICAL", sortOrder: 2 },
       }),
     ).rejects.toThrow(/condition_requirement_target/);
+  });
+
+  it("reservation userId must reference a user", async () => {
+    const b = await seedBasics();
+    await expect(prisma.reservation.create({ data: resv(b, "k1", { userId: "no-such-user" }) })).rejects.toMatchObject({
+      code: "P2003", // Prisma's mapping of Postgres 23503 foreign_key_violation
+    });
   });
 
   it("rejects quantity 0", async () => {

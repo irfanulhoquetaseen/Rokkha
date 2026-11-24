@@ -79,7 +79,7 @@ describe("authorization guards", () => {
     const r = await prisma.reservation.create({
       data: {
         userId: citizen.id, hospitalId: hA, resourceTypeId: rt.id, hospitalResourceId: hr.id,
-        expiresAt: new Date(Date.now() + 30 * 60_000), idempotencyKey: "k1",
+        expiresAt: new Date(Date.now() + 30 * 60_000), idempotencyKey: "k1", requestHash: "h",
       },
     });
     expect((await requireReservationOwner(citizen, r.id)).id).toBe(r.id);

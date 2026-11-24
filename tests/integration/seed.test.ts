@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db";
-import { DEMO_ACCOUNTS, runSeed } from "@/server/seed/run-seed";
+import { DEMO_ACCOUNTS, DEMO_RACER_PHONES, runSeed } from "@/server/seed/run-seed";
 import { resetDb } from "../support/db";
 
 const passwords = { admin: "admin-pass-1234", staff: "staff-pass-1234", citizen: "citizen-pass-1234" };
@@ -30,7 +30,7 @@ describe("runSeed", { timeout: 180_000 }, () => {
     const summary = await runSeed(prisma, { passwords, resetStock: false, now: NOW });
     expect(await counts()).toEqual(first);
     expect(summary.hospitals).toBe(25);
-    expect(first).toMatchObject({ hospitals: 25, directoryOnly: 5, resourceTypes: 26, conditions: 8, guides: 8, compat: 27, users: 6 });
+    expect(first).toMatchObject({ hospitals: 25, directoryOnly: 5, resourceTypes: 26, conditions: 8, guides: 8, compat: 27, users: 26 });
     expect(first.resources).toBe(20 * 26);
     expect(await prisma.firstAidGuide.count({ where: { reviewStatus: "SOURCE_CHECKED" } })).toBe(8);
     const dirOnly = await prisma.hospitalResource.count({ where: { hospital: { liveDataEnabled: false } } });
@@ -45,7 +45,7 @@ describe("runSeed", { timeout: 180_000 }, () => {
     expect(staff1?.hospital?.slug).toBe("dhanmondi-care-general");
     expect(staff2?.hospital?.slug).toBe("mirpur-shastho-medical");
     expect((await prisma.user.findUnique({ where: { phone: "01700000001" } }))?.role).toBe("ADMIN");
-    expect(await prisma.user.count({ where: { role: "CITIZEN" } })).toBe(3);
+    expect(await prisma.user.count({ where: { role: "CITIZEN" } })).toBe(23);
   });
 
   it("keeps stock edits unless resetStock", async () => {
@@ -95,5 +95,64 @@ describe("runSeed", { timeout: 180_000 }, () => {
     expect(trauma.requirements).toHaveLength(6);
     expect(trauma.requirements.filter((r) => r.isBlood && r.resourceTypeId === null)).toHaveLength(1);
     expect(await prisma.resourceType.count({ where: { bloodGroup: { not: null } } })).toBe(8);
+  });
+
+  it("every seeded hospital is a demo hospital", async () => {
+    await runSeed(prisma, { passwords, resetStock: false, now: NOW });
+    expect(await prisma.hospital.count({ where: { isDemo: false } })).toBe(0);
+  });
+
+  it("seed creates the 20 demo racer citizens", async () => {
+    await runSeed(prisma, { passwords, resetStock: false, now: NOW });
+    expect(DEMO_RACER_PHONES).toHaveLength(20);
+    expect(DEMO_RACER_PHONES[0]).toBe("01700000101");
+    expect(DEMO_RACER_PHONES[19]).toBe("01700000120");
+    expect(await prisma.user.count({ where: { phone: { in: DEMO_RACER_PHONES }, role: "CITIZEN" } })).toBe(20);
+    expect(await prisma.user.count()).toBe(26);
+  });
+
+  async function dhanmondiGeneralBed() {
+    const h = await prisma.hospital.findUniqueOrThrow({ where: { slug: "dhanmondi-care-general" } });
+    const rt = await prisma.resourceType.findUniqueOrThrow({ where: { code: "GENERAL_BED" } });
+    const hr = await prisma.hospitalResource.findUniqueOrThrow({ where: { hospitalId_resourceTypeId: { hospitalId: h.id, resourceTypeId: rt.id } } });
+    return { h, rt, hr };
+  }
+  function hold(b: Awaited<ReturnType<typeof dhanmondiGeneralBed>>, userId: string, key: string, status: "HELD" | "ARRIVED" | "CANCELLED", quantity: number) {
+    return prisma.reservation.create({
+      data: {
+        userId, hospitalId: b.h.id, resourceTypeId: b.rt.id, hospitalResourceId: b.hr.id, quantity, status,
+        expiresAt: new Date(NOW.getTime() + 1_800_000), idempotencyKey: key, requestHash: "h",
+      },
+    });
+  }
+
+  it("reset stock subtracts active holds", async () => {
+    await runSeed(prisma, { passwords, resetStock: false, now: NOW });
+    const b = await dhanmondiGeneralBed();
+    expect(b.hr.available).toBe(74);
+    const users = await prisma.user.findMany({ where: { role: "CITIZEN" }, take: 3 });
+    await hold(b, users[0].id, "k1", "HELD", 2);
+    await hold(b, users[1].id, "k2", "ARRIVED", 1);
+    await hold(b, users[2].id, "k3", "CANCELLED", 5);
+    await prisma.hospitalResource.update({ where: { id: b.hr.id }, data: { available: { decrement: 3 } } });
+    await runSeed(prisma, { passwords, resetStock: true, now: NOW });
+    expect(await prisma.hospitalResource.findUniqueOrThrow({ where: { id: b.hr.id } })).toMatchObject({ available: 71, total: 120 });
+  });
+
+  it("reset stock never goes negative", async () => {
+    await runSeed(prisma, { passwords, resetStock: false, now: NOW });
+    const h = await prisma.hospital.findUniqueOrThrow({ where: { slug: "dhanmondi-care-general" } });
+    const rt = await prisma.resourceType.findUniqueOrThrow({ where: { code: "ICU_BED" } });
+    const hr = await prisma.hospitalResource.findUniqueOrThrow({ where: { hospitalId_resourceTypeId: { hospitalId: h.id, resourceTypeId: rt.id } } });
+    expect(hr.available).toBe(1);
+    const user = await prisma.user.findFirstOrThrow({ where: { role: "CITIZEN" } });
+    await prisma.hospitalResource.update({ where: { id: hr.id }, data: { total: 10, available: 8 } });
+    await prisma.reservation.create({
+      data: { userId: user.id, hospitalId: h.id, resourceTypeId: rt.id, hospitalResourceId: hr.id, quantity: 2, status: "HELD", expiresAt: new Date(NOW.getTime() + 1_800_000), idempotencyKey: "k9", requestHash: "h" },
+    });
+    await runSeed(prisma, { passwords, resetStock: true, now: NOW });
+    const after = await prisma.hospitalResource.findUniqueOrThrow({ where: { id: hr.id } });
+    expect(after.available).toBe(0);
+    expect(after.total).toBeGreaterThanOrEqual(2);
   });
 });

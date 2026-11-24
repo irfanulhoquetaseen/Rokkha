@@ -15,6 +15,13 @@ export const DEMO_ACCOUNTS = {
   citizen3: { phone: "01700000023", name: "Tanvir Ahmed", role: "CITIZEN" as const },
 };
 
+// Extra citizens used only by `npm run demo:race` and the concurrency E2E tests.
+export const DEMO_RACERS = Array.from({ length: 20 }, (_, i) => {
+  const n = String(i + 1).padStart(2, "0");
+  return { phone: `017000001${n}`, name: `Demo Racer ${n}`, role: "CITIZEN" as const };
+});
+export const DEMO_RACER_PHONES: string[] = DEMO_RACERS.map((r) => r.phone);
+
 export type SeedSummary = Record<string, number>;
 export type SeedOptions = {
   passwords: { admin: string; staff: string; citizen: string };
@@ -71,7 +78,7 @@ export async function runSeed(db: PrismaClient, opts: SeedOptions): Promise<Seed
   const hospitalIds = new Map<string, string>();
   for (const h of HOSPITALS) {
     const data = {
-      nameBn: h.nameBn, nameEn: h.nameEn, type: h.type, freeService: h.freeService, liveDataEnabled: h.live,
+      nameBn: h.nameBn, nameEn: h.nameEn, type: h.type, freeService: h.freeService, liveDataEnabled: h.live, isDemo: true,
       phone: h.phone, division: h.division, district: h.district, area: h.area, address: h.address, lat: h.lat, lng: h.lng,
     };
     const row = await db.hospital.upsert({ where: { slug: h.slug }, create: { slug: h.slug, ...data }, update: data });
@@ -85,15 +92,15 @@ export async function runSeed(db: PrismaClient, opts: SeedOptions): Promise<Seed
 
     const rows = types.map((t) => {
       if (t.kind === "STATUS") {
-        return { resourceTypeId: t.id, total: 0, available: 0, isAvailable: statusOn.has(t.code) };
+        return { resourceTypeId: t.id, total: 0, available: 0, isAvailable: statusOn.has(t.code), isStatus: true };
       }
       const override = h.stock?.[t.code];
       const total = override ? override[0] : (counts[t.code] ?? 0);
       const available = override ? override[1] : Math.ceil(total * 0.6);
-      return { resourceTypeId: t.id, total, available, isAvailable: available > 0 };
+      return { resourceTypeId: t.id, total, available, isAvailable: available > 0, isStatus: false };
     });
     await db.hospitalResource.createMany({
-      data: rows.map((r) => ({ hospitalId: row.id, ...r, updatedAt })),
+      data: rows.map((r) => ({ hospitalId: row.id, resourceTypeId: r.resourceTypeId, total: r.total, available: r.available, isAvailable: r.isAvailable, updatedAt })),
       skipDuplicates: true,
     });
     if (opts.resetStock) {
@@ -101,11 +108,20 @@ export async function runSeed(db: PrismaClient, opts: SeedOptions): Promise<Seed
       const ids = rows.map((r) => r.resourceTypeId);
       await db.$executeRaw`
         UPDATE "HospitalResource" hr
-        SET "total" = v.total, "available" = v.available, "isAvailable" = v.is_available,
+        SET "total" = GREATEST(h.total, h.held),
+            "available" = GREATEST(0, h.available - h.held),
+            "isAvailable" = CASE WHEN h.is_status THEN h.is_available ELSE GREATEST(0, h.available - h.held) > 0 END,
             "updatedAt" = ${updatedAt}, "version" = hr."version" + 1
-        FROM unnest(${ids}::text[], ${rows.map((r) => r.total)}::int[], ${rows.map((r) => r.available)}::int[], ${rows.map((r) => r.isAvailable)}::boolean[])
-          AS v(rt_id, total, available, is_available)
-        WHERE hr."hospitalId" = ${row.id} AND hr."resourceTypeId" = v.rt_id`;
+        FROM (
+          SELECT v.*, COALESCE((
+            SELECT SUM(r."quantity") FROM "Reservation" r
+            WHERE r."hospitalResourceId" = x.id AND r."status" IN ('HELD', 'ARRIVED')
+          ), 0)::int AS held
+          FROM unnest(${ids}::text[], ${rows.map((r) => r.total)}::int[], ${rows.map((r) => r.available)}::int[], ${rows.map((r) => r.isAvailable)}::boolean[], ${rows.map((r) => r.isStatus)}::boolean[])
+            AS v(rt_id, total, available, is_available, is_status)
+          JOIN "HospitalResource" x ON x."hospitalId" = ${row.id} AND x."resourceTypeId" = v.rt_id
+        ) h
+        WHERE hr."hospitalId" = ${row.id} AND hr."resourceTypeId" = h.rt_id`;
     }
   }
 
@@ -123,6 +139,7 @@ export async function runSeed(db: PrismaClient, opts: SeedOptions): Promise<Seed
     { ...DEMO_ACCOUNTS.citizen2, hash: hashes.citizen, hospitalId: null },
     { ...DEMO_ACCOUNTS.citizen3, hash: hashes.citizen, hospitalId: null },
   ];
+  for (const r of DEMO_RACERS) users.push({ ...r, hash: hashes.citizen, hospitalId: null });
   for (const u of users) {
     const data = { name: u.name, passwordHash: u.hash, role: u.role, hospitalId: u.hospitalId };
     await db.user.upsert({ where: { phone: u.phone }, create: { phone: u.phone, ...data }, update: data });
