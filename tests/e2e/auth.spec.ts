@@ -132,19 +132,20 @@ test("GET /api/auth/me reflects the session cookie", async ({ page, baseURL }) =
   expect(me.user).toMatchObject({ name, role: "CITIZEN" });
 });
 
-test.describe("before hydration (no JavaScript)", () => {
-  test.use({ javaScriptEnabled: false });
-
-  test("submitting the login form never puts credentials in the URL", async ({ page }) => {
-    const phone = uniquePhone();
-    await page.goto("/login");
-    await page.getByLabel(auth.phone.bn).fill(phone);
-    await page.getByLabel(auth.password.bn).fill(PASSWORD);
-    const nav = page.waitForEvent("framenavigated");
-    await page.getByRole("button", { name: auth.loginSubmit.bn }).click();
-    await nav;
-    expect(page.url()).not.toContain(PASSWORD);
-    expect(page.url()).not.toContain(phone);
-    expect(page.url()).not.toContain("password=");
-  });
+test("a login submitted before hydration never puts credentials in the URL", async ({ page }) => {
+  // JS on (the streamed form still appears via the inline streaming scripts) but React never hydrates.
+  await page.route("**/_next/static/chunks/**", (r) => r.abort());
+  const phone = uniquePhone();
+  await page.goto("/login");
+  await page.getByLabel(auth.phone.bn).fill(phone);
+  await page.getByLabel(auth.password.bn).fill(PASSWORD);
+  const submitted = page.waitForRequest((r) => r.isNavigationRequest() && r.frame() === page.mainFrame());
+  await page.getByRole("button", { name: auth.loginSubmit.bn }).click();
+  const req = await submitted;
+  expect(req.method()).toBe("POST");
+  for (const url of [req.url(), page.url()]) {
+    expect(url).not.toContain(PASSWORD);
+    expect(url).not.toContain(phone);
+    expect(url).not.toContain("password");
+  }
 });

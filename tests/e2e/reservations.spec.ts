@@ -142,11 +142,12 @@ test("hold → tracker shows HELD and a countdown → cancel → CANCELLED", asy
   await expect(page.getByTestId("timeline-event")).toHaveCount(1);
   await expect(page.getByRole("link", { name: new RegExp(t.firstAidLink.bn) })).toHaveAttribute("href", "/first-aid/STROKE");
 
-  const cancel = page.getByTestId("cancel-button");
-  await cancel.click();
-  await expect(cancel).toHaveText(t.tapAgainToCancel.bn);
-  await expect(status).toHaveAttribute("data-status", "HELD"); // the first tap only arms it
-  await cancel.click();
+  await page.getByTestId("cancel-button").click();
+  const confirm = page.getByTestId("cancel-confirm");
+  await expect(confirm).toHaveText(t.confirmCancel.bn);
+  await expect(page.getByTestId("cancel-keep")).toHaveText(t.keepHold.bn);
+  await expect(status).toHaveAttribute("data-status", "HELD"); // the first tap only asks
+  await confirm.click();
   await expect(status).toHaveAttribute("data-status", "CANCELLED");
   await expect(page.getByTestId("countdown")).toHaveCount(0);
   await expect(page.getByTestId("cancel-button")).toHaveCount(0);
@@ -243,12 +244,14 @@ test("an accidental double tap on Cancel keeps the hold", async ({ page }) => {
   await openOwnHold(page);
   const cancel = page.getByTestId("cancel-button");
   await cancel.dblclick();
-  await expect(cancel).toHaveText(t.tapAgainToCancel.bn);
-  await page.waitForTimeout(1_000);
+  // The 2nd tap landed on "Keep hold" (same position), never on the confirm button.
+  await expect(cancel).toBeVisible();
+  await expect(page.getByTestId("cancel-confirm")).toHaveCount(0);
   await expect(page.getByTestId("reservation-status")).toHaveAttribute("data-status", "HELD");
   expect(await activeHolds(citizen)).toHaveLength(1);
-  // A deliberate second tap still cancels.
+  // Asking and then confirming still cancels, with no waiting.
   await cancel.click();
+  await page.getByTestId("cancel-confirm").click();
   await expect(page.getByTestId("reservation-status")).toHaveAttribute("data-status", "CANCELLED");
 });
 

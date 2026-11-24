@@ -40,9 +40,6 @@ const btn = "inline-flex min-h-12 items-center justify-center rounded-lg px-4 te
 const REFETCH_RETRIES = 5;
 /** State updater that never goes back to an older version of the reservation. */
 const newer = (next: TrackerReservation) => (cur: TrackerReservation) => (next.version >= cur.version ? next : cur);
-const DISARM_MS = 5_000;
-/** A confirming tap this soon after arming is the 2nd half of an accidental double tap: ignored. */
-const CONFIRM_GUARD_MS = 600;
 type OneResponse = { reservation: TrackerReservation; serverNow?: string };
 
 /**
@@ -57,7 +54,6 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
   // server time from a fresh GET as soon as it arrives.
   const [nowMs, setNowMs] = useState(serverNowMs);
   const offsetRef = useRef(0);
-  const armedAt = useRef(0);
   const [armed, setArmed] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<Bilingual | null>(null);
@@ -110,21 +106,12 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
     };
   }, [timeUp, r.id]);
 
-  // An armed cancel button disarms itself if the second tap never comes.
-  useEffect(() => {
-    if (!armed) return;
-    const id = setTimeout(() => setArmed(false), DISARM_MS);
-    return () => clearTimeout(id);
-  }, [armed]);
+  function arm() {
+    setArmed(true);
+    setError(null);
+  }
 
-  async function onCancel() {
-    if (!armed) {
-      armedAt.current = Date.now();
-      setArmed(true);
-      setError(null);
-      return;
-    }
-    if (Date.now() - armedAt.current < CONFIRM_GUARD_MS) return; // double tap, not a confirmation
+  async function confirmCancel() {
     if (inFlight.current) return;
     inFlight.current = true;
     setCancelling(true);
@@ -183,23 +170,40 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
         </p>
       )}
 
-      {held && !timeUp && (
-        <div className="flex flex-wrap gap-2">
+      {held && !timeUp && !armed && (
+        <button
+          type="button"
+          data-testid="cancel-button"
+          onClick={arm}
+          className={`${btn} w-full border-2 border-zinc-800 hover:bg-zinc-100 dark:border-zinc-300 dark:hover:bg-zinc-800`}
+        >
+          {t.cancel[lang]}
+        </button>
+      )}
+      {held && !timeUp && armed && (
+        // "Keep hold" sits exactly where "Cancel hold" was, and the destructive confirm is below it:
+        // the 2nd tap of an accidental double tap lands on "Keep", never on "Yes, cancel".
+        <div className="flex flex-col gap-2">
           <button
             type="button"
-            data-testid="cancel-button"
-            onClick={onCancel}
+            data-testid="cancel-keep"
+            onClick={() => setArmed(false)}
+            disabled={cancelling}
+            className={`${btn} w-full border-2 border-zinc-800 hover:bg-zinc-100 dark:border-zinc-300 dark:hover:bg-zinc-800`}
+          >
+            {t.keepHold[lang]}
+          </button>
+          <p className="text-sm font-semibold">{t.cancelPrompt[lang]}</p>
+          <button
+            type="button"
+            data-testid="cancel-confirm"
+            onClick={confirmCancel}
             disabled={cancelling}
             aria-busy={cancelling}
-            className={`${btn} flex-1 ${armed ? "bg-red-700 text-white hover:bg-red-800" : "border-2 border-zinc-800 hover:bg-zinc-100 dark:border-zinc-300 dark:hover:bg-zinc-800"}`}
+            className={`${btn} w-full bg-red-700 text-white hover:bg-red-800`}
           >
-            {cancelling ? t.cancelling[lang] : armed ? t.tapAgainToCancel[lang] : t.cancel[lang]}
+            {cancelling ? t.cancelling[lang] : t.confirmCancel[lang]}
           </button>
-          {armed && !cancelling && (
-            <button type="button" onClick={() => setArmed(false)} className={`${btn} border border-zinc-300 dark:border-zinc-700`}>
-              {t.keep[lang]}
-            </button>
-          )}
         </div>
       )}
 
