@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useEffectEvent, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useMemo, useSyncExternalStore } from "react";
 import type { ReservationChangedEvent, StockChangedEvent } from "@/lib/realtime-types";
 import {
-  type LiveSocket, type LiveState, acquireRooms, getLiveSocket, getLiveState, onLiveReady, releaseRooms,
-  subscribeLiveState,
+  type LiveSnapshot, type LiveState, acquireRooms, getLiveSnapshot, getLiveSocket, isLiveConnected, onLiveEvents,
+  onLiveReady, releaseRooms, subscribeLiveStore,
 } from "./socket";
 
 export type UseLiveOptions = {
@@ -17,15 +17,17 @@ export type UseLiveOptions = {
   onConnect: () => void;
 };
 
-const serverState = (): LiveState => "connecting";
+const serverSnapshot: LiveSnapshot = { state: "connecting", denied: new Set() };
+const getServerSnapshot = () => serverSnapshot;
 
 /**
  * Live island hook. Loads the shared socket after hydration, joins `rooms`, forwards events and
  * calls `onConnect` so the island refetches its snapshot whenever it (re)connects. Callers apply
- * events through a version gate and coalesce refetches.
+ * events through a version gate and coalesce refetches. `deniedRooms` lists rooms the server
+ * refused (or never acked): the island should fall back to polling or a manual refresh.
  */
-export function useLive({ rooms, onEvent, onConnect }: UseLiveOptions): { state: LiveState } {
-  const state = useSyncExternalStore(subscribeLiveState, getLiveState, serverState);
+export function useLive({ rooms, onEvent, onConnect }: UseLiveOptions): { state: LiveState; deniedRooms: string[] } {
+  const snap = useSyncExternalStore(subscribeLiveStore, getLiveSnapshot, getServerSnapshot);
   const roomsKey = rooms.join("|"); // room names never contain "|" (server regex)
 
   const handleConnect = useEffectEvent(() => onConnect());
@@ -34,36 +36,30 @@ export function useLive({ rooms, onEvent, onConnect }: UseLiveOptions): { state:
 
   useEffect(() => {
     const list = roomsKey ? roomsKey.split("|") : [];
-    let socket: LiveSocket | null = null;
     let disposed = false;
-    let offReady = () => {};
-    const stock = (s: StockChangedEvent) => handleStock(s);
-    const reservation = (r: ReservationChangedEvent) => handleReservation(r);
-
-    getLiveSocket()
-      .then(async (s) => {
-        if (disposed) return;
-        socket = s;
-        s.on("stock:changed", stock);
-        s.on("reservation:changed", reservation);
-        offReady = onLiveReady(() => handleConnect());
-        await acquireRooms(s, list);
-        if (!disposed && s.connected) handleConnect(); // mounted on an already-open socket
-      })
-      .catch(() => {
-        // socket chunk failed to load: the island keeps its server-rendered snapshot
-      });
+    const offEvents = onLiveEvents({ stock: (s) => handleStock(s), reservation: (r) => handleReservation(r) });
+    const offReady = onLiveReady(() => handleConnect());
+    const wasConnected = isLiveConnected();
+    const joined = acquireRooms(list);
+    // Already-open socket: no `connect` will come, so refetch once our new rooms are joined.
+    if (wasConnected) void joined.then(() => !disposed && handleConnect());
+    getLiveSocket().catch(() => {
+      // socket chunk failed to load: the island keeps its server-rendered snapshot
+    });
 
     return () => {
       disposed = true;
       offReady();
-      if (socket) {
-        socket.off("stock:changed", stock);
-        socket.off("reservation:changed", reservation);
-        releaseRooms(socket, list);
-      }
+      offEvents();
+      // Deferred so that on a rooms change the next effect acquires first: shared rooms never
+      // drop to zero and get unsubscribed/resubscribed.
+      queueMicrotask(() => releaseRooms(list));
     };
   }, [roomsKey]);
 
-  return { state };
+  const deniedRooms = useMemo(
+    () => (roomsKey ? roomsKey.split("|") : []).filter((r) => snap.denied.has(r)),
+    [roomsKey, snap.denied],
+  );
+  return { state: snap.state, deniedRooms };
 }

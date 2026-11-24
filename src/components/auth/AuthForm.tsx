@@ -6,6 +6,7 @@ import type { Bilingual, ErrorBody } from "@/lib/errors";
 import { auth } from "@/lib/i18n/auth";
 import { common } from "@/lib/i18n/common";
 import type { Lang } from "@/lib/i18n";
+import { resetLiveSocket } from "@/components/realtime/socket";
 import { bdPhoneSchema } from "@/lib/validation/phone";
 
 type Mode = "login" | "signup";
@@ -80,6 +81,7 @@ export function AuthForm({ mode, lang, next }: { mode: Mode; lang: Lang; next: s
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        resetLiveSocket(); // live socket re-handshakes with the new session cookie
         // Stay "pending" while navigating; refresh re-renders the header with the new session.
         router.replace(next);
         router.refresh();

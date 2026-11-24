@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { resetLiveSocket } from "@/components/realtime/socket";
 import { auth } from "@/lib/i18n/auth";
 import type { Lang } from "@/lib/i18n";
 
@@ -18,6 +19,7 @@ export function LogoutButton({ lang }: { lang: Lang }) {
       // Network failure: the server session may survive, but navigating home re-renders the
       // header from the real cookie state, so the UI never claims a logout that didn't happen.
     }
+    resetLiveSocket(); // drop the old session from the live socket
     router.push("/");
     router.refresh();
     setPending(false);
