@@ -44,11 +44,19 @@ export async function cancelActive(client: Client) {
   const { items } = (await res.json()) as { items: { id: string; status: string }[] };
   for (const r of items.filter((x) => x.status === "HELD")) {
     const c = await req.post(`/api/reservations/${r.id}/cancel`, { headers: { Origin: origin() } });
-    expect(c.ok(), `cancel ${r.id}`).toBeTruthy();
+    if (c.ok()) continue;
+    // It left HELD meanwhile (expired, or staff acted): nothing left to cancel.
+    const code = c.status() === 409 ? ((await c.json()) as { error?: { code?: string } }).error?.code : undefined;
+    expect(code, `cancel ${r.id}: ${c.status()}`).toBe("INVALID_TRANSITION");
   }
 }
 
 /** Resolves once the page's live island has loaded its socket chunk and handshaken. Call before goto. */
 export function socketHandshake(page: Page) {
   return page.waitForResponse((r) => r.url().includes("/socket.io/") && r.status() < 400, { timeout: 20_000 });
+}
+
+/** The page's live island is connected and has joined its rooms (hidden `live-state` marker). */
+export function liveConnected(page: Page) {
+  return expect(page.getByTestId("live-state").first()).toHaveAttribute("data-state", "connected", { timeout: 20_000 });
 }

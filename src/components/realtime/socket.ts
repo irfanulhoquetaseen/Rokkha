@@ -171,8 +171,13 @@ export function getLiveSocket(): Promise<LiveSocket> {
     window.addEventListener("online", () => {
       offline = false;
       manualReconnects = 0;
-      if (socket.connected) setState("connected");
-      else reconnectNow(socket);
+      if (socket.connected) {
+        // The transport may have survived the outage while frames were lost: refetch snapshots anyway.
+        setState("connected");
+        for (const l of readyListeners) l();
+      } else {
+        reconnectNow(socket);
+      }
     });
     return socket;
   });
