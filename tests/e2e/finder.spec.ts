@@ -33,6 +33,18 @@ for (const c of CONDITIONS) {
   });
 }
 
+test("demo hospitals never expose a tel: link; only Call 999 dials", async ({ page }) => {
+  await page.goto("/find?condition=STROKE");
+  await expect(page.getByTestId("hospital-card").first()).toBeVisible();
+  await expect(page.locator('a[href^="tel:"]:not([href="tel:999"])')).toHaveCount(0);
+  expect(await page.locator('a[href="tel:999"]').count()).toBeGreaterThanOrEqual(1);
+  const demo = page.getByTestId("demo-phone").first();
+  await expect(demo).toContainText("DEMO");
+  const btn = demo.locator("button");
+  await expect(btn).toBeDisabled();
+  await expect(btn).toHaveAttribute("title", "Demo hospital — calling disabled");
+});
+
 test("home → tap Stroke lands on the stroke results", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('a[href="tel:999"]').first()).toBeVisible();

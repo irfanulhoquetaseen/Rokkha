@@ -60,6 +60,8 @@ export const finder = {
   never: { bn: "কখনো না", en: "never" },
   staleWarning: { bn: "তথ্য পুরোনো হতে পারে", en: "Data may be out of date" },
   callHospital: { bn: "হাসপাতালে কল করুন", en: "Call hospital" },
+  demoBadge: { bn: "ডেমো", en: "DEMO" },
+  demoCallDisabled: { bn: "ডেমো হাসপাতাল — কল বন্ধ", en: "Demo hospital — calling disabled" },
   prev: { bn: "আগের পাতা", en: "Previous" },
   next: { bn: "পরের পাতা", en: "Next" },
   pageOf: { bn: "পাতা", en: "Page" },

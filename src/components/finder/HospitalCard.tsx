@@ -3,6 +3,7 @@ import { finder } from "@/lib/i18n/finder";
 import type { FinderResult } from "@/server/finder/search";
 import { STALE_AFTER_MS } from "@/server/matching";
 import { fmtAge, fmtKm, fmtNum } from "./format";
+import { HospitalPhone } from "./HospitalPhone";
 import { TypeBadges } from "./TypeBadges";
 
 type Item = FinderResult["results"][number];
@@ -73,13 +74,7 @@ export function HospitalCard({ item, lang, nowMs }: { item: Item; lang: Lang; no
         ))}
       </ul>
 
-      <a
-        href={`tel:${h.phone}`}
-        className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg border-2 border-zinc-800 px-4 text-sm font-semibold hover:bg-zinc-100 dark:border-zinc-300 dark:hover:bg-zinc-800"
-      >
-        <span aria-hidden="true">📞</span>
-        {finder.callHospital[lang]} · <span dir="ltr">{h.phone}</span>
-      </a>
+      <HospitalPhone phone={h.phone} isDemo={h.isDemo} name={lang === "bn" ? h.nameBn : h.nameEn} lang={lang} />
     </li>
   );
 }

@@ -17,6 +17,7 @@ type HospitalInfo = {
   area: string;
   district: string;
   address: string;
+  isDemo: boolean;
 };
 
 export type DirectoryEntry = Omit<HospitalInfo, "slug"> & { distanceKm: number | null };
@@ -79,7 +80,7 @@ export async function listDirectory(params: FinderParams): Promise<DirectoryEntr
     },
     select: {
       id: true, nameBn: true, nameEn: true, phone: true, area: true, district: true,
-      address: true, type: true, freeService: true, lat: true, lng: true,
+      address: true, type: true, freeService: true, lat: true, lng: true, isDemo: true,
     },
   });
   const origin = originOf(params);
@@ -140,7 +141,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
     },
     select: {
       id: true, slug: true, nameBn: true, nameEn: true, type: true, freeService: true,
-      phone: true, area: true, district: true, address: true, lat: true, lng: true,
+      phone: true, area: true, district: true, address: true, lat: true, lng: true, isDemo: true,
       resources: {
         select: {
           total: true, available: true, isAvailable: true, updatedAt: true,
@@ -226,7 +227,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
       ...r,
       hospital: {
         id: h.id, slug: h.slug, nameBn: h.nameBn, nameEn: h.nameEn, type: h.type,
-        freeService: h.freeService, phone: h.phone, area: h.area, district: h.district, address: h.address,
+        freeService: h.freeService, phone: h.phone, area: h.area, district: h.district, address: h.address, isDemo: h.isDemo,
       },
     };
   });

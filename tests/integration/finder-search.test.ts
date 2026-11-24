@@ -131,6 +131,15 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     expect(r.directory).toHaveLength(5);
   });
 
+  it("results and directory carry isDemo", async () => {
+    const r = await searchHospitals(p({ condition: "STROKE" }), NOW);
+    expect(r.results.length).toBeGreaterThan(0);
+    for (const x of r.results) expect(x.hospital.isDemo).toBe(true);
+    expect(r.directory.length).toBeGreaterThan(0);
+    for (const d of r.directory) expect(d.isDemo).toBe(true);
+    for (const d of await listDirectory(p({}))) expect(typeof d.isDemo).toBe("boolean");
+  });
+
   it("filters by resource: COUNTABLE needs available > 0, STATUS needs isAvailable; unknown code is ignored", async () => {
     const all = await searchHospitals(p({ condition: "STROKE" }), NOW);
     // Make sure at least one live hospital lacks each resource, so the filter must remove something.

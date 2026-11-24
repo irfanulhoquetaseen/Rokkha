@@ -2,6 +2,7 @@ import type { Lang } from "@/lib/i18n";
 import { finder } from "@/lib/i18n/finder";
 import type { DirectoryEntry } from "@/server/finder/search";
 import { fmtKm } from "./format";
+import { HospitalPhone } from "./HospitalPhone";
 import { TypeBadges } from "./TypeBadges";
 
 /** Hospitals without live data: contact details only, clearly marked unverified. */
@@ -28,14 +29,7 @@ export function DirectoryList({ entries, lang }: { entries: DirectoryEntry[]; la
                   {d.distanceKm !== null && <span>· {fmtKm(d.distanceKm, lang)}</span>}
                 </div>
               </div>
-              <a
-                href={`tel:${d.phone}`}
-                aria-label={`${finder.callHospital[lang]}: ${name}, ${d.phone}`}
-                className="inline-flex min-h-11 shrink-0 items-center gap-2 self-start rounded-lg border border-zinc-400 px-3 text-sm font-semibold hover:bg-zinc-100 sm:self-auto dark:hover:bg-zinc-800"
-              >
-                <span aria-hidden="true">📞</span>
-                <span dir="ltr">{d.phone}</span>
-              </a>
+              <HospitalPhone phone={d.phone} isDemo={d.isDemo} name={name} lang={lang} compact />
             </li>
             );
           })}
