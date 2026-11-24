@@ -59,4 +59,15 @@ describe("coalescer", () => {
     await vi.advanceTimersByTimeAsync(300);
     expect(fn).toHaveBeenCalledTimes(2);
   });
+
+  it("maxWait: a steady stream of triggers still runs (at least every ~1 s)", async () => {
+    const fn = vi.fn(async () => {});
+    const c = createCoalescer(fn, 300, 1000);
+    for (let t = 0; t < 3000; t += 200) {
+      c.trigger();
+      await vi.advanceTimersByTimeAsync(200); // never 300 ms quiet: a pure debounce would never fire
+    }
+    expect(fn.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(fn.mock.calls.length).toBeLessThanOrEqual(4);
+  });
 });

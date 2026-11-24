@@ -82,7 +82,12 @@ async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       {/* Live: newer stock for this condition re-runs the ranking (router.refresh). */}
-      <FinderLive relevantCodes={result.relevantCodes} versions={result.stockVersions} lang={lang} />
+      <FinderLive
+        relevantCodes={result.relevantCodes}
+        hospitalIds={result.candidateHospitalIds}
+        versions={result.stockVersions}
+        lang={lang}
+      />
       {noticeList}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold break-words">{conditionName}</h1>

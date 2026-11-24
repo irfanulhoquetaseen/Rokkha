@@ -7,10 +7,12 @@ import { fmtNum } from "@/components/finder/format";
 import { postJson } from "@/lib/api-client";
 import type { Bilingual } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
+import { realtime } from "@/lib/i18n/realtime";
 import { reservations as t } from "@/lib/i18n/reservations";
 import { SoldOutPanel, type AlternativeItem } from "./SoldOutPanel";
 
-export type HoldResource = { code: string; nameBn: string; nameEn: string; available: number };
+/** `soldOut`: none left right now — rendered as a disabled button, but kept mounted (open panels survive live refreshes). */
+export type HoldResource = { code: string; nameBn: string; nameEn: string; available: number; soldOut?: boolean };
 
 export type HoldButtonProps = {
   hospitalId: string;
@@ -22,6 +24,9 @@ export type HoldButtonProps = {
   loginHref: string;
   lang: Lang;
 };
+
+const soldOutBtn =
+  "inline-flex min-h-12 w-full items-center justify-center rounded-lg border-2 border-zinc-300 bg-zinc-100 px-4 py-2 text-center text-base font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300";
 
 type Failure = { message: Bilingual; limit?: boolean; login?: boolean };
 
@@ -104,18 +109,27 @@ export function HoldButton(props: HoldButtonProps) {
     return <SoldOutPanel {...props} alternatives={alternatives} />;
   }
 
+  // A live refresh can mark the resource sold out at any time; an in-flight hold keeps its "Holding…" state.
+  const soldOut = resource.soldOut === true && !pending;
   return (
     <div className="flex flex-col gap-2">
       <button
         type="button"
         data-testid="hold-button"
         data-resource={resource.code}
-        className={btn}
-        disabled={pending}
+        data-sold-out={soldOut || undefined}
+        className={soldOut ? soldOutBtn : btn}
+        disabled={pending || soldOut}
         aria-busy={pending}
         onClick={hold}
       >
-        {pending ? t.holding[lang] : <HoldLabel resource={resource} lang={lang} />}
+        {pending ? (
+          t.holding[lang]
+        ) : soldOut ? (
+          realtime.soldOutHere[lang].replace("{name}", lang === "bn" ? resource.nameBn : resource.nameEn)
+        ) : (
+          <HoldLabel resource={resource} lang={lang} />
+        )}
       </button>
       {failure && (
         <div role="alert" data-testid="hold-error" className="flex flex-col gap-1 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">

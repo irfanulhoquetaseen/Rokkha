@@ -169,6 +169,13 @@ export async function hospitalExists(idOrSlug: string): Promise<boolean> {
   return h !== null;
 }
 
+/** Hospital names by id or slug (page title); null when unknown or malformed. */
+export async function getHospitalName(idOrSlug: string): Promise<{ nameBn: string; nameEn: string } | null> {
+  const key = hospitalKeySchema.safeParse(idOrSlug);
+  if (!key.success) return null;
+  return prisma.hospital.findFirst({ where: { OR: [{ id: key.data }, { slug: key.data }] }, select: { nameBn: true, nameEn: true } });
+}
+
 export type HospitalPage = {
   stock: HospitalStock;
   info: { type: "GOVT" | "PRIVATE"; freeService: boolean; phone: string; address: string };

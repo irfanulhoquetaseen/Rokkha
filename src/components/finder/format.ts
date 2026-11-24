@@ -27,3 +27,13 @@ export function fmtAge(at: Date | null, nowMs: number, lang: Lang): string {
 export function requestTimeMs(): number {
   return Date.now();
 }
+
+const clock = {
+  bn: new Intl.DateTimeFormat("bn-BD", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Dhaka" }),
+  en: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Dhaka" }),
+};
+
+/** "20:13" in Bangladesh time (same on server and client, so no hydration mismatch). */
+export function fmtClock(at: Date, lang: Lang): string {
+  return clock[lang].format(at);
+}

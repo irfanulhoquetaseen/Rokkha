@@ -38,7 +38,7 @@ export function SoldOutPanel(props: HoldButtonProps & { alternatives: Alternativ
                 <p className="text-sm text-zinc-700 dark:text-zinc-300">
                   {fmtKm(a.distanceKm, lang)} · {fmtNum(a.available, lang)} {t.available[lang]}
                 </p>
-                <HoldButton {...hold} hospitalId={a.hospitalId} resource={{ ...resource, available: a.available }} />
+                <HoldButton {...hold} hospitalId={a.hospitalId} resource={{ ...resource, available: a.available, soldOut: false }} />
               </li>
             ))}
           </ul>

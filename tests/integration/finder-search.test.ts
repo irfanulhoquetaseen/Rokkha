@@ -119,7 +119,7 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     expect(await suitable()).toBe(false);
   });
 
-  it("holdable lists countable requirement stock and compatible blood", async () => {
+  it("holdable lists countable requirement stock (sold-out rows flagged) and compatible blood", async () => {
     const h = await prisma.hospital.findUniqueOrThrow({ where: { slug: "mirpur-shastho-medical" } });
     const set = (code: string, available: number) =>
       prisma.hospitalResource.updateMany({ where: { hospitalId: h.id, resourceType: { code } }, data: { available } });
@@ -137,13 +137,14 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     const codes = a.map((x) => x.code);
     expect(codes).toContain("BLOOD_A_POS");
     expect(codes).toContain("ICU_BED");
-    expect(codes).not.toContain("STRETCHER"); // none left
+    // None left: still listed (the card keeps its button mounted, shown as "Sold out").
+    expect(a.find((x) => x.code === "STRETCHER")).toMatchObject({ available: 0, soldOut: true });
     // STATUS requirements (surgeon, OT, CT) are never holdable.
     for (const s of ["SURGEON_ON_DUTY", "OPERATION_THEATRE", "CT_SCAN"]) expect(codes).not.toContain(s);
     // Exactly one blood row is offered.
     expect(codes.filter((c) => c.startsWith("BLOOD_"))).toEqual(["BLOOD_A_POS"]);
     const blood = a.find((x) => x.code === "BLOOD_A_POS")!;
-    expect(blood).toMatchObject({ quantity: 1, available: 4, consumable: true });
+    expect(blood).toMatchObject({ quantity: 1, available: 4, consumable: true, soldOut: false });
     expect(blood.nameBn).toBeTruthy();
     expect(a.find((x) => x.code === "ICU_BED")).toMatchObject({ quantity: 1, available: 3, consumable: false });
 
@@ -165,7 +166,14 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
     const unknown = await holdable();
     expect(unknown.filter((x) => x.code.startsWith("BLOOD_")).map((x) => x.code)).toEqual(["BLOOD_O_NEG"]);
     await set("BLOOD_O_NEG", 0);
-    expect((await holdable()).some((x) => x.code.startsWith("BLOOD_"))).toBe(false);
+    // No compatible unit anywhere: the preferred row stays listed as sold out (never an incompatible one).
+    expect((await holdable()).filter((x) => x.code.startsWith("BLOOD_")).map((x) => [x.code, x.soldOut])).toEqual([["BLOOD_O_NEG", true]]);
+    await set("BLOOD_A_NEG", 0);
+    await set("BLOOD_O_POS", 0);
+    expect((await holdable("A_POS")).filter((x) => x.code.startsWith("BLOOD_")).map((x) => [x.code, x.soldOut])).toEqual([["BLOOD_A_POS", true]]);
+    // A capability the hospital does not have at all (total 0) is never listed.
+    await prisma.hospitalResource.updateMany({ where: { hospitalId: h.id, resourceType: { code: "STRETCHER" } }, data: { total: 0 } });
+    expect((await holdable()).some((x) => x.code === "STRETCHER")).toBe(false);
   });
 
   it("lists the 5 directory hospitals, nearest first when an origin is given", async () => {
@@ -237,9 +245,22 @@ describe("finder search (seeded real DB)", { timeout: 240_000 }, () => {
 
     const blood = await searchHospitals(p({ condition: "TRAUMA" }), NOW);
     expect(blood.relevantCodes).toEqual(expect.arrayContaining(["BLOOD_O_NEG", "BLOOD_AB_POS"]));
+    // Candidates: every live hospital passing type/free/radius, on any page (the resource filter is ignored).
+    const near = await searchHospitals(p({ condition: "SNAKEBITE", area: "dhanmondi", radius: "5", resource: "ANTIVENOM" }), NOW);
+    const nearAll = await searchHospitals(p({ condition: "SNAKEBITE", area: "dhanmondi", radius: "5" }), NOW);
+    expect([...near.candidateHospitalIds].sort()).toEqual(nearAll.results.map((x) => x.hospitalId).sort());
+    expect(near.candidateHospitalIds.length).toBeGreaterThanOrEqual(near.total);
+    const all = await searchHospitals(p({ condition: "SNAKEBITE" }), NOW);
+    expect(all.candidateHospitalIds).toHaveLength(all.total); // > 1 page: includes hospitals not on page 1
+    expect(all.total).toBeGreaterThan(all.results.length);
+    const govt = await searchHospitals(p({ condition: "SNAKEBITE", type: "GOVT" }), NOW);
+    expect([...govt.candidateHospitalIds].sort()).toEqual(
+      (await prisma.hospital.findMany({ where: { liveDataEnabled: true, type: "GOVT" }, select: { id: true } })).map((h) => h.id).sort(),
+    );
     const none = await searchHospitals(p({}), NOW);
     expect(none.relevantCodes).toEqual([]);
     expect(none.stockVersions).toEqual({});
+    expect(none.candidateHospitalIds).toEqual([]);
   });
 
   it("returns condition null and no results for an unknown condition", async () => {

@@ -176,8 +176,6 @@ test("sold-out shows alternatives", async ({ page }) => {
   const { url, hospital } = SOLD_OUT[project()];
   await login(page.request, ACCOUNTS[project()].citizen);
   expect(await stockOf(citizen, hospital.slug, "ICU_BED"), "seeded last unit").toBe(1);
-  // A stale page = no live connection (with live sync the button would vanish before the click).
-  await page.route("**/socket.io/**", (route) => route.abort());
 
   await page.goto(url);
   const btn = holdButton(page, hospital.nameBn, "ICU_BED");
@@ -193,6 +191,12 @@ test("sold-out shows alternatives", async ({ page }) => {
   await expect(panel).toContainText(t.soldOut.bn);
   expect(await panel.getByTestId("alternative").count()).toBeGreaterThanOrEqual(1);
   await expect(panel.getByTestId("alternative").first().getByTestId("hold-button")).toBeVisible();
+  // The winner's stock:changed refreshes the live Finder meanwhile (ICU is now "sold out" on this card):
+  // the open panel and its alternatives must survive that refresh.
+  await page.waitForTimeout(2500);
+  await expect(page.getByTestId("finder-live-status")).toContainText("তালিকা আপডেট হয়েছে"); // a live refresh did land
+  await expect(panel).toBeVisible();
+  await expect(panel.getByTestId("alternative").first().getByTestId("hold-button")).toBeEnabled();
   expect(await activeHolds(citizen)).toHaveLength(0);
 });
 

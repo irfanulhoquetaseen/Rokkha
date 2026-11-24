@@ -10,9 +10,14 @@ import { LiveStockTable, type LiveStockRow } from "@/components/hospital/LiveSto
 import { AppError } from "@/lib/errors";
 import { realtime } from "@/lib/i18n/realtime";
 import { getLang } from "@/server/i18n/lang";
-import { getHospitalPage, type HospitalPage } from "@/server/reservations/queries";
+import { getHospitalName, getHospitalPage, type HospitalPage } from "@/server/reservations/queries";
 
-export const metadata: Metadata = { title: "Hospital — JibonSetu" };
+/** Request-time (params, lang cookie, DB): streams with the rest of the page, which is already dynamic. */
+export async function generateMetadata({ params }: PageProps<"/hospitals/[hospital]">): Promise<Metadata> {
+  const [{ hospital: key }, lang] = await Promise.all([params, getLang()]);
+  const h = await getHospitalName(key);
+  return { title: h ? `${lang === "bn" ? h.nameBn : h.nameEn} — JibonSetu` : "JibonSetu" };
+}
 
 type Params = Promise<{ hospital: string }>;
 

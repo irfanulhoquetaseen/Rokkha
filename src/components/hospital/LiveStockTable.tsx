@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fmtNum } from "@/components/finder/format";
-import { createCoalescer } from "@/components/realtime/coalesce";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { fmtClock, fmtNum } from "@/components/finder/format";
+import { type Coalescer, createCoalescer } from "@/components/realtime/coalesce";
 import { ReconnectingBanner } from "@/components/realtime/ReconnectingBanner";
 import { useLive } from "@/components/realtime/useLive";
 import { createVersionGate } from "@/components/realtime/version-gate";
@@ -21,10 +21,8 @@ export type LiveStockRow = Omit<StockChangedEvent, "hospitalId" | "resourceTypeI
 type Snapshot = { resources: (StockChangedEvent & { kind: "COUNTABLE" | "STATUS" })[] };
 
 const FLASH_MS = 1500;
-const timeFmt = {
-  bn: new Intl.DateTimeFormat("bn-BD", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Dhaka" }),
-  en: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Dhaka" }),
-};
+/** Screen readers hear "Stock updated" at most this often. */
+const ANNOUNCE_EVERY_MS = 10_000;
 
 /**
  * Public live stock of one hospital. Rows update in place from `hospital:{id}` events that pass the
@@ -39,7 +37,10 @@ export function LiveStockTable({ hospitalId, initial, lang }: { hospitalId: stri
     for (const r of initial) g.set(r.id, r.version);
     return g;
   });
-  const [timers] = useState(() => new Map<string, ReturnType<typeof setTimeout>>()); // flash timers per row
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>()); // flash timers per row
+  const lastAnnounce = useRef(0);
+  const refetchRef = useRef<Coalescer | null>(null);
+  const [announcement, setAnnouncement] = useState("");
 
   function apply(changes: Pick<LiveStockRow, "id" | "available" | "total" | "isAvailable" | "version" | "updatedAt">[]) {
     if (changes.length === 0) return;
@@ -51,12 +52,17 @@ export function LiveStockTable({ hospitalId, initial, lang }: { hospitalId: stri
       }),
     );
     setFlash((prev) => new Set([...prev, ...byId.keys()]));
+    const now = Date.now();
+    if (now - lastAnnounce.current >= ANNOUNCE_EVERY_MS) {
+      lastAnnounce.current = now;
+      setAnnouncement(realtime.stockUpdated[lang].replace("{t}", fmtClock(new Date(now), lang)));
+    }
     for (const id of byId.keys()) {
-      clearTimeout(timers.get(id));
-      timers.set(
+      clearTimeout(timers.current.get(id));
+      timers.current.set(
         id,
         setTimeout(() => {
-          timers.delete(id);
+          timers.current.delete(id);
           setFlash((prev) => {
             const next = new Set(prev);
             next.delete(id);
@@ -66,24 +72,25 @@ export function LiveStockTable({ hospitalId, initial, lang }: { hospitalId: stri
       );
     }
   }
+  const applySnapshot = useEffectEvent((rows: Snapshot["resources"]) => apply(rows));
 
-  const [refetch] = useState(() =>
-    createCoalescer(async () => {
+  // Declared before useLive, so the coalescer exists before the first connect calls onConnect.
+  useEffect(() => {
+    const c = createCoalescer(async () => {
       const res = await getJson<Snapshot>(`/api/hospitals/${encodeURIComponent(hospitalId)}/stock`);
       if (!res.ok) return; // keep what is shown; the next connect or event tries again
       // Every version the gate holds is already on screen, so a snapshot row is applied only when
       // strictly newer: an equal one is a no-op (no flash), an older one never rolls the row back.
-      apply(res.data.resources.filter((r) => gate.accept(r.id, r.version)));
-    }, 300),
-  );
-
-  useEffect(
-    () => () => {
-      refetch.cancel();
-      for (const id of timers.values()) clearTimeout(id);
-    },
-    [refetch, timers],
-  );
+      applySnapshot(res.data.resources.filter((r) => gate.accept(r.id, r.version)));
+    }, 300);
+    refetchRef.current = c;
+    const flashTimers = timers.current;
+    return () => {
+      c.cancel();
+      refetchRef.current = null;
+      for (const id of flashTimers.values()) clearTimeout(id);
+    };
+  }, [hospitalId, gate]);
 
   const { state } = useLive({
     rooms: [`hospital:${hospitalId}`],
@@ -92,12 +99,15 @@ export function LiveStockTable({ hospitalId, initial, lang }: { hospitalId: stri
         if (s.hospitalId === hospitalId && gate.accept(s.id, s.version)) apply([s]);
       },
     },
-    onConnect: () => refetch.trigger(),
+    onConnect: () => refetchRef.current?.trigger(),
   });
 
   return (
     <>
       <ReconnectingBanner state={state} lang={lang} />
+      <p role="status" aria-live="polite" data-testid="stock-live-status" className="sr-only">
+        {announcement}
+      </p>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-zinc-300 text-left dark:border-zinc-700">
@@ -136,7 +146,7 @@ export function LiveStockTable({ hospitalId, initial, lang }: { hospitalId: stri
                 )}
               </td>
               <td className="py-2 text-right whitespace-nowrap text-zinc-600 dark:text-zinc-400">
-                {timeFmt[lang].format(new Date(r.updatedAt))}
+                {fmtClock(new Date(r.updatedAt), lang)}
               </td>
             </tr>
           ))}

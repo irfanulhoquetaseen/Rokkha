@@ -116,12 +116,13 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
               ))}
             </p>
           )}
-          {/* Signed out: one login link per card (it returns here); signed in: one button per resource. */}
-          {(hold.citizen ? item.holdable : item.holdable.slice(0, 1)).map((r) => (
+          {/* Signed out: one login link per card (it returns here); signed in: one button per resource,
+              sold-out ones included (disabled) so a live refresh never unmounts an open sold-out panel. */}
+          {(hold.citizen ? item.holdable : item.holdable.filter((r) => !r.soldOut).slice(0, 1)).map((r) => (
             <HoldButton
               key={r.code}
               hospitalId={item.hospitalId}
-              resource={{ code: r.code, nameBn: r.nameBn, nameEn: r.nameEn, available: r.available }}
+              resource={{ code: r.code, nameBn: r.nameBn, nameEn: r.nameEn, available: r.available, soldOut: r.soldOut }}
               conditionCode={hold.conditionCode}
               bloodGroup={hold.bloodGroup}
               origin={hold.origin}

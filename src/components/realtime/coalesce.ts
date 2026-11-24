@@ -1,21 +1,27 @@
 // Burst coalescer for snapshot refetches: debounced, single flight, and at most one trailing
 // run when triggered while a run is in flight. Keeps a burst of 20 socket events from turning
-// into 20 HTTP requests on a slow phone connection.
+// into 20 HTTP requests on a slow phone connection. `maxWaitMs` bounds the debounce: a steady
+// stream of triggers (never quiet for `delayMs`) still runs at least that often.
 
 export type Coalescer = { trigger(): void; cancel(): void };
 
-export function createCoalescer(fn: () => Promise<void>, delayMs = 300): Coalescer {
+export function createCoalescer(fn: () => Promise<void>, delayMs = 300, maxWaitMs = 1000): Coalescer {
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let firstTriggerAt: number | null = null; // start of the current debounce window
   let running = false;
   let pending = false;
 
   const schedule = () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(run, delayMs);
+    const now = Date.now();
+    firstTriggerAt ??= now;
+    const wait = Math.max(0, Math.min(delayMs, firstTriggerAt + maxWaitMs - now));
+    timer = setTimeout(run, wait);
   };
 
   async function run() {
     timer = null;
+    firstTriggerAt = null;
     running = true;
     try {
       await fn();
@@ -38,6 +44,7 @@ export function createCoalescer(fn: () => Promise<void>, delayMs = 300): Coalesc
     cancel() {
       if (timer) clearTimeout(timer);
       timer = null;
+      firstTriggerAt = null;
       pending = false;
     },
   };

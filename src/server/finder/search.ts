@@ -22,8 +22,14 @@ type HospitalInfo = {
 
 export type DirectoryEntry = Omit<HospitalInfo, "slug"> & { distanceKm: number | null };
 
-/** A countable resource this hospital can hold right now for the chosen condition (one unit per hold). */
-export type Holdable = { code: string; nameBn: string; nameEn: string; available: number; quantity: 1; consumable: boolean };
+/**
+ * A countable resource this hospital offers for the chosen condition (one unit per hold). `soldOut`
+ * rows (stock 0 of a capability it has) stay listed so a live refresh never unmounts a hold button
+ * mid-action: the card shows them as a disabled "Sold out" button.
+ */
+export type Holdable = {
+  code: string; nameBn: string; nameEn: string; available: number; quantity: 1; consumable: boolean; soldOut: boolean;
+};
 
 export type FinderResult = {
   condition: { code: string; nameBn: string; nameEn: string } | null;
@@ -41,6 +47,12 @@ export type FinderResult = {
   relevantCodes: string[];
   /** `{ hospitalResourceId: version }` of the relevant rows of the hospitals on this page (live version gate). */
   stockVersions: Record<string, number>;
+  /**
+   * Hospitals that can appear in this result on any page: pass the type/free/radius filters. The
+   * resource filter is ignored on purpose (a restock can bring a hospital in). Stock events for any
+   * other hospital cannot change the result, so the live island ignores them.
+   */
+  candidateHospitalIds: string[];
 };
 
 export type ResourceOption = { code: string; nameBn: string; nameEn: string };
@@ -135,7 +147,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
   const resourceIgnored = params.resource !== undefined && resourceCode === undefined;
   const empty: FinderResult = {
     condition: null, results: [], total: 0, page: params.page, pageSize: PAGE_SIZE, directory, radiusIgnored,
-    resourceIgnored, resourceTypes, relevantCodes: [], stockVersions: {},
+    resourceIgnored, resourceTypes, relevantCodes: [], stockVersions: {}, candidateHospitalIds: [],
   };
   if (!conditionRow) return empty;
 
@@ -259,11 +271,15 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
     resourceTypes,
     relevantCodes: [...relevant],
     stockVersions,
+    candidateHospitalIds: allHospitals
+      .filter((h) => params.radius === undefined || !origin || haversineKm(origin, h) <= params.radius)
+      .map((h) => h.id),
   };
 }
 
 type StockRow = {
   available: number;
+  total: number;
   resourceType: { code: string; kind: "COUNTABLE" | "STATUS"; consumable: boolean; bloodGroup: DbBloodGroup | null; nameBn: string; nameEn: string };
 };
 
@@ -271,6 +287,8 @@ type StockRow = {
  * What a citizen can hold here for this condition: every COUNTABLE requirement resource with stock,
  * plus for a blood requirement ONE blood row — the patient's own group first, else the compatible
  * donor group with the most units; unknown group → O- (universal red-cell donor) only.
+ * Requirement rows the hospital has (total > 0) but with no stock are listed as `soldOut`; for blood
+ * with no compatible unit at all, that is the preferred row (own group, or O- when unknown).
  * Not-suitable hospitals keep their holdable stock (staff decide on arrival).
  */
 function holdableFor(
@@ -278,15 +296,17 @@ function holdableFor(
 ): Holdable[] {
   const toHoldable = (r: StockRow): Holdable => ({
     code: r.resourceType.code, nameBn: r.resourceType.nameBn, nameEn: r.resourceType.nameEn,
-    available: r.available, quantity: 1, consumable: r.resourceType.consumable,
+    available: r.available, quantity: 1, consumable: r.resourceType.consumable, soldOut: r.available < 1,
   });
-  const inStock = rows.filter((r) => r.resourceType.kind === "COUNTABLE" && r.available >= 1);
+  const offered = rows.filter((r) => r.resourceType.kind === "COUNTABLE" && r.total > 0);
+  const inStock = offered.filter((r) => r.available >= 1);
   const out: Holdable[] = [];
   const seen = new Set<string>();
   for (const req of requirements) {
     if (req.isBlood) {
       const bloodRows = inStock.filter((r) => r.resourceType.bloodGroup !== null);
       let pick: StockRow | undefined;
+      const preferred = blood ?? "O_NEG";
       if (blood === null) {
         pick = bloodRows.find((r) => r.resourceType.bloodGroup === "O_NEG");
       } else {
@@ -298,13 +318,14 @@ function holdableFor(
             .sort((a, b) => b.available - a.available || a.resourceType.code.localeCompare(b.resourceType.code))[0];
         }
       }
+      pick ??= offered.find((r) => r.resourceType.bloodGroup === preferred); // none compatible left: sold out
       if (pick && !seen.has(pick.resourceType.code)) {
         seen.add(pick.resourceType.code);
         out.push(toHoldable(pick));
       }
       continue;
     }
-    const row = req.resourceCode ? inStock.find((r) => r.resourceType.code === req.resourceCode) : undefined;
+    const row = req.resourceCode ? offered.find((r) => r.resourceType.code === req.resourceCode) : undefined;
     if (row && !seen.has(row.resourceType.code)) {
       seen.add(row.resourceType.code);
       out.push(toHoldable(row));
