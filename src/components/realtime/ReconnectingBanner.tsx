@@ -16,7 +16,7 @@ export function ReconnectingBanner({ state, lang }: { state: LiveState; lang: La
       <div
         role="status"
         data-testid="reconnecting-banner"
-        className="sticky top-0 z-50 flex min-h-11 items-center justify-center bg-amber-300 px-4 py-2 text-center text-base font-semibold text-black"
+        className="sticky top-0 z-50 flex min-h-11 items-center justify-center border-b border-[var(--warning-border)] bg-[var(--accent-gold)] px-4 py-2 text-center text-base font-bold text-[#14201B]"
       >
         {pick(lang, realtime.reconnecting)}
       </div>

@@ -27,7 +27,7 @@ export function HospitalPhone({
       <a
         href={`tel:${phone}`}
         aria-label={`${finder.callHospital[lang]}: ${name}, ${phone}`}
-        className={`inline-flex items-center justify-center text-sm font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 ${size}`}
+        className={`inline-flex items-center justify-center border-[var(--border-strong)] bg-[var(--bg-surface)] text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] ${size}`}
       >
         <span aria-hidden="true">📞</span>
         {!compact && <>{finder.callHospital[lang]} · </>}
@@ -38,8 +38,8 @@ export function HospitalPhone({
 
   return (
     <div data-testid="demo-phone" className="flex flex-wrap items-center gap-2 self-start text-sm">
-      <span dir="ltr" className="font-semibold">{phone}</span>
-      <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs font-bold text-white dark:bg-zinc-200 dark:text-zinc-900">
+      <span dir="ltr" className="font-semibold text-[var(--text-primary)]">{phone}</span>
+      <span className="rounded-md bg-[var(--text-primary)] px-2 py-0.5 text-xs font-bold text-[var(--bg-surface)]">
         {finder.demoBadge.en}
       </span>
       <button
@@ -47,7 +47,7 @@ export function HospitalPhone({
         disabled
         aria-disabled="true"
         title={finder.demoCallDisabled.en}
-        className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-lg border border-zinc-300 px-3 text-sm font-semibold text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
+        className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] px-3 text-sm font-semibold text-[var(--text-muted)]"
       >
         <span aria-hidden="true">📞</span>
         {finder.demoCallDisabled[lang]}

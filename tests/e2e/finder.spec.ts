@@ -29,7 +29,8 @@ for (const c of CONDITIONS) {
     await expect(firstAid.getByText(finder.disclaimer.en)).toBeVisible();
 
     await expect(page.getByRole("heading", { name: finder.directoryTitle.bn })).toBeVisible();
-    await expect(page.getByText("DEMO DATA — not real hospital availability")).toBeVisible();
+    await expect(page.getByTestId("demo-badge")).toBeVisible();
+    await expect(cards.first().getByTestId("hospital-demo-tag")).toBeVisible();
   });
 }
 

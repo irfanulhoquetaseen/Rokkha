@@ -90,6 +90,12 @@ export const finder = {
   reviewDRAFT: { bn: "খসড়া — পর্যালোচনা বাকি", en: "Draft — not yet reviewed" },
   reviewSOURCE_CHECKED: { bn: "উৎসের সাথে মিলিয়ে দেখা হয়েছে", en: "Checked against source" },
   reviewMEDICALLY_REVIEWED: { bn: "চিকিৎসক দ্বারা পর্যালোচিত", en: "Medically reviewed" },
+  demoTag: { bn: "ডেমো", en: "Demo" },
+  howItWorksTitle: { bn: "কীভাবে কাজ করে", en: "How it works" },
+  step1: { bn: "১. জরুরি অবস্থা বাছুন", en: "1. Choose emergency" },
+  step2: { bn: "২. উপযুক্ত হাসপাতাল দেখুন", en: "2. See ranked hospitals" },
+  step3: { bn: "৩০ মিনিট রিসোর্স হোল্ড করুন", en: "3. Hold for 30 min" },
+  footerTagline: { bn: "রক্ষা — জরুরি মুহূর্তে, সঠিক হাসপাতাল", en: "Rokkha — The right hospital, right when it matters" },
 } as const satisfies Record<string, Bilingual>;
 
 export const BLOOD_LABEL: Record<string, string> = {

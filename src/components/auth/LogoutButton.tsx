@@ -16,10 +16,9 @@ export function LogoutButton({ lang }: { lang: Lang }) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch {
-      // Network failure: the server session may survive, but navigating home re-renders the
-      // header from the real cookie state, so the UI never claims a logout that didn't happen.
+      // Network failure: re-render reflects cookie state accurately.
     }
-    resetLiveSocket(); // drop the old session from the live socket
+    resetLiveSocket();
     router.push("/");
     router.refresh();
     setPending(false);
@@ -30,7 +29,7 @@ export function LogoutButton({ lang }: { lang: Lang }) {
       type="button"
       onClick={onLogout}
       disabled={pending}
-      className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm font-medium hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-600 dark:hover:bg-zinc-800"
+      className="min-h-11 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] disabled:opacity-60"
     >
       {auth.logout[lang]}
     </button>

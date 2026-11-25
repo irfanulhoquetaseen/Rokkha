@@ -18,9 +18,9 @@ export type HospitalPageData = { items: HospitalRow[]; total: number; page: numb
 export type ResourceTypeOption = { id: string; code: string; nameBn: string; nameEn: string; kind: "COUNTABLE" | "STATUS" };
 
 const inputCls =
-  "min-h-11 w-full rounded-md border border-zinc-300 bg-transparent px-3 text-sm outline-none focus:border-purple-700 focus:ring-2 focus:ring-purple-700/30 dark:border-zinc-700 dark:bg-zinc-900";
+  "min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/25";
 const btnCls =
-  "inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 function slugifyEn(name: string): string {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
@@ -89,7 +89,7 @@ export function HospitalList({
             type="button"
             data-testid="import-csv-btn"
             onClick={() => { setShowCreate(false); setEditingId(null); setShowImport((v) => !v); }}
-            className={`${btnCls} border border-zinc-300 px-4 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800`}
+            className={`${btnCls} border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 hover:bg-[var(--bg-subtle)]`}
           >
             {admin.importCsv[lang]}
           </button>
@@ -97,7 +97,7 @@ export function HospitalList({
             type="button"
             data-testid="create-hospital-btn"
             onClick={() => { setShowImport(false); setEditingId(null); setShowCreate(true); }}
-            className={`${btnCls} bg-purple-700 px-4 text-white hover:bg-purple-800`}
+            className={`${btnCls} bg-[var(--brand-primary)] px-4 text-white hover:bg-[var(--brand-primary-hover)]`}
           >
             {admin.createHospital[lang]}
           </button>
@@ -206,9 +206,9 @@ export function HospitalList({
       {data.items.length === 0 ? (
         <p className="py-8 text-center text-sm text-zinc-500">{admin.noHospitals[lang]}</p>
       ) : (
-        <div className={`overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div className={`overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs transition-opacity ${loading ? "opacity-60" : ""}`}>
           <table className="w-full text-left text-sm" data-testid="admin-hospitals-table">
-            <thead className="border-b border-zinc-200 dark:border-zinc-700">
+            <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
               <tr>
                 <th className="px-3 py-2 font-medium">{admin.nameEn[lang]}</th>
                 <th className="px-3 py-2 font-medium">{admin.type[lang]}</th>
@@ -454,7 +454,7 @@ function HospitalForm({
       noValidate
       data-testid="hospital-form"
       aria-label={isEdit ? admin.editHospital[lang] : admin.createHospital[lang]}
-      className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs"
     >
       <h3 className="mb-4 text-lg font-bold">{isEdit ? admin.editHospital[lang] : admin.createHospital[lang]}</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -642,10 +642,10 @@ function HospitalForm({
         </p>
       )}
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="submit" disabled={saving} className={`${btnCls} bg-purple-700 px-4 text-white hover:bg-purple-800`}>
+        <button type="submit" disabled={saving} className={`${btnCls} bg-[var(--brand-primary)] px-4 text-white hover:bg-[var(--brand-primary-hover)]`}>
           {saving ? admin.saving[lang] : admin.save[lang]}
         </button>
-        <button type="button" onClick={onClose} className={`${btnCls} border border-zinc-300 px-4 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800`}>
+        <button type="button" onClick={onClose} className={`${btnCls} border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 hover:bg-[var(--bg-subtle)]`}>
           {admin.cancel[lang]}
         </button>
       </div>
@@ -688,12 +688,12 @@ function CsvImportPanel({ lang, onClose, onImported }: { lang: Lang; onClose: ()
   };
 
   return (
-    <form onSubmit={runImport} className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+    <form onSubmit={runImport} className="flex flex-col gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold">{admin.importCsv[lang]}</h3>
-        <button type="button" onClick={onClose} className={`${btnCls} border border-zinc-300 dark:border-zinc-700`}>{admin.cancel[lang]}</button>
+        <button type="button" onClick={onClose} className={`${btnCls} border border-[var(--border-default)] bg-[var(--bg-surface)]`}>{admin.cancel[lang]}</button>
       </div>
-      <p className="text-xs text-zinc-600 dark:text-zinc-400">{admin.importCsvHint[lang]}</p>
+      <p className="text-xs text-[var(--text-muted)]">{admin.importCsvHint[lang]}</p>
       <div>
         <label htmlFor="csv-file" className="mb-1 block text-sm font-medium">{admin.importCsvFile[lang]}</label>
         <input
@@ -715,24 +715,24 @@ function CsvImportPanel({ lang, onClose, onImported }: { lang: Lang; onClose: ()
           rows={4}
           value={csv}
           onChange={(e) => setCsv(e.target.value)}
-          className="w-full rounded-md border border-zinc-300 bg-transparent p-2 font-mono text-xs dark:border-zinc-700"
+          className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2.5 font-mono text-xs"
         />
       </div>
-      {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+      {error && <p role="alert" className="text-sm text-[var(--emergency-text)]">{error}</p>}
       {report && (
-        <div role="status" className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-800">
+        <div role="status" className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-xs">
           <p className="font-semibold">
             total: {report.summary.total} · created: {report.summary.created} · updated: {report.summary.updated} · unchanged: {report.summary.unchanged} · errors: {report.summary.errors}
           </p>
           {report.rows.filter((r) => r.status === "error").map((r) => (
-            <p key={r.rowNumber} className="mt-1 text-red-700 dark:text-red-300">
+            <p key={r.rowNumber} className="mt-1 text-[var(--emergency-text)]">
               Row {r.rowNumber} ({r.slug || "?"}): {r.errors?.join("; ")}
             </p>
           ))}
         </div>
       )}
       <div>
-        <button type="submit" disabled={running || !csv.trim()} className={`${btnCls} bg-purple-700 px-4 text-white hover:bg-purple-800`}>
+        <button type="submit" disabled={running || !csv.trim()} className={`${btnCls} bg-[var(--brand-primary)] px-4 text-white hover:bg-[var(--brand-primary-hover)]`}>
           {running ? admin.importing[lang] : admin.importCsvRun[lang]}
         </button>
       </div>
@@ -764,10 +764,10 @@ function DemoRefreshButton({ lang }: { lang: Lang }) {
   };
 
   return (
-    <div className="mt-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+    <div className="mt-4 rounded-xl border border-[var(--warning-border)] bg-[var(--bg-surface)] p-5 shadow-xs">
       <h3 className="mb-2 text-lg font-bold">{admin.demoRefresh[lang]}</h3>
       {status && (
-        <p role={status.ok ? "status" : "alert"} className={`mb-2 text-sm ${status.ok ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+        <p role={status.ok ? "status" : "alert"} className={`mb-2 text-sm font-medium ${status.ok ? "text-[var(--brand-primary-text)]" : "text-[var(--emergency-text)]"}`}>
           {status.text}
         </p>
       )}
@@ -779,7 +779,7 @@ function DemoRefreshButton({ lang }: { lang: Lang }) {
             data-testid="demo-refresh-confirm"
             onClick={doRefresh}
             disabled={working}
-            className={`${btnCls} bg-amber-600 px-4 text-white hover:bg-amber-700`}
+            className={`${btnCls} bg-[var(--accent-gold)] px-4 text-[#14201B] hover:opacity-90`}
           >
             {working ? admin.refreshing[lang] : admin.yes[lang]}
           </button>
@@ -787,7 +787,7 @@ function DemoRefreshButton({ lang }: { lang: Lang }) {
             type="button"
             onClick={() => setConfirming(false)}
             disabled={working}
-            className={`${btnCls} border border-zinc-300 px-4 dark:border-zinc-700`}
+            className={`${btnCls} border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 hover:bg-[var(--bg-subtle)]`}
           >
             {admin.no[lang]}
           </button>
@@ -797,7 +797,7 @@ function DemoRefreshButton({ lang }: { lang: Lang }) {
           type="button"
           data-testid="demo-refresh-btn"
           onClick={() => setConfirming(true)}
-          className={`${btnCls} bg-amber-600 px-4 text-white hover:bg-amber-700`}
+          className={`${btnCls} border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 text-[var(--warning-text)] hover:opacity-90`}
         >
           {admin.refreshDemoStock[lang]}
         </button>

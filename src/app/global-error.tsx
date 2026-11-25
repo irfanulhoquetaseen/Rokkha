@@ -10,11 +10,11 @@ export default function GlobalError({ retry }: { error: unknown; retry: () => vo
   return (
     <html lang="bn">
       <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", textAlign: "center", padding: "48px 16px" }}>
-        <title>JibonSetu</title>
+        <title>Rokkha</title>
         <h1 style={{ fontSize: 22 }}>কিছু একটা সমস্যা হয়েছে</h1>
         <p lang="en">Something went wrong. Please try again.</p>
         <p>
-          <a href="tel:999" style={{ ...button, background: "#b91c1c", color: "#fff" }}>
+          <a href="tel:999" style={{ ...button, background: "#C8102E", color: "#fff" }}>
             ৯৯৯-এ কল করুন / Call 999
           </a>
         </p>

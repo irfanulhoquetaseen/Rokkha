@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { StatusPanel } from "@/components/StatusPanel";
 
-export const metadata: Metadata = { title: "System status — JibonSetu" };
+export const metadata: Metadata = { title: "System status — Rokkha" };
 
 export default function StatusPage() {
   return (

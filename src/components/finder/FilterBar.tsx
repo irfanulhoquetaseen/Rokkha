@@ -8,9 +8,9 @@ import { fmtNum } from "./format";
 import { LocationButton } from "./LocationButton";
 import { finderHref } from "./url";
 
-const field = "flex min-w-0 flex-col gap-1 text-sm font-medium";
+const field = "flex min-w-0 flex-col gap-1 text-sm font-medium text-[var(--text-primary)]";
 const control =
-  "min-h-11 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-2 text-base dark:border-zinc-700 dark:bg-zinc-900";
+  "min-h-11 w-full min-w-0 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2.5 text-base text-[var(--text-primary)]";
 
 /** Plain GET form (works without JS); only the geolocation button is a client component. */
 export function FilterBar({
@@ -25,7 +25,7 @@ export function FilterBar({
   const usingLocation = !params.area && params.lat !== undefined && params.lng !== undefined;
 
   return (
-    <form method="get" action="/find" className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <form method="get" action="/find" className="flex flex-col gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs">
       <h2 className="text-base font-bold">{finder.filters[lang]}</h2>
       {params.condition && <input type="hidden" name="condition" value={params.condition} />}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -127,7 +127,7 @@ export function FilterBar({
 
         <button
           type="submit"
-          className="col-span-2 min-h-11 self-end rounded-lg bg-zinc-900 px-4 font-semibold text-white hover:bg-zinc-700 lg:col-span-1 dark:bg-zinc-100 dark:text-zinc-900"
+          className="col-span-2 min-h-11 self-end rounded-lg bg-[var(--brand-primary)] px-4 font-semibold text-white shadow-2xs transition-colors hover:bg-[var(--brand-primary-hover)] lg:col-span-1"
         >
           {finder.apply[lang]}
         </button>

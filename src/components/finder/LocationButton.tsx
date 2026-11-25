@@ -47,7 +47,7 @@ export function LocationButton({ labels }: { labels: Labels }) {
         type="button"
         onClick={locate}
         disabled={state === "locating"}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-zinc-400 px-3 text-sm font-semibold hover:bg-zinc-100 disabled:opacity-60 dark:hover:bg-zinc-800"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] disabled:opacity-60"
       >
         <span aria-hidden="true">📍</span>
         {state === "locating" ? labels.locating : labels.use}

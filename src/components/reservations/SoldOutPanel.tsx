@@ -24,18 +24,18 @@ export function SoldOutPanel(props: HoldButtonProps & { alternatives: Alternativ
   const { alternatives, ...hold } = props;
   const { lang, resource } = hold;
   return (
-    <div data-testid="sold-out-panel" role="alert" className="flex flex-col gap-3 rounded-lg border-2 border-red-700 p-3">
-      <p className="font-semibold text-red-800 dark:text-red-300">❌ {t.soldOut[lang]}</p>
+    <div data-testid="sold-out-panel" role="alert" className="flex flex-col gap-3 rounded-xl border-2 border-[var(--emergency)] bg-[var(--bg-surface)] p-4 shadow-xs">
+      <p className="font-semibold text-[var(--emergency-text)]">❌ {t.soldOut[lang]}</p>
       {alternatives.length === 0 ? (
-        <p className="text-sm">{t.noAlternatives[lang]}</p>
+        <p className="text-sm text-[var(--text-muted)]">{t.noAlternatives[lang]}</p>
       ) : (
         <>
           <p className="text-sm font-bold">{t.alternativesTitle[lang]}</p>
           <ul className="flex flex-col gap-3">
             {alternatives.map((a) => (
-              <li key={a.hospitalId} data-testid="alternative" className="flex flex-col gap-2 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-900">
+              <li key={a.hospitalId} data-testid="alternative" className="flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3">
                 <p className="font-semibold break-words">{lang === "bn" ? a.nameBn : a.nameEn}</p>
-                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                <p className="text-sm text-[var(--text-muted)]">
                   {fmtKm(a.distanceKm, lang)} · {fmtNum(a.available, lang)} {t.available[lang]}
                 </p>
                 <HoldButton {...hold} hospitalId={a.hospitalId} resource={{ ...resource, available: a.available, soldOut: false }} />

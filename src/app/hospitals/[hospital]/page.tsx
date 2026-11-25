@@ -8,6 +8,7 @@ import { HospitalPhone } from "@/components/finder/HospitalPhone";
 import { TypeBadges } from "@/components/finder/TypeBadges";
 import { LiveStockTable, type LiveStockRow } from "@/components/hospital/LiveStockTable";
 import { AppError } from "@/lib/errors";
+import { finder } from "@/lib/i18n/finder";
 import { realtime } from "@/lib/i18n/realtime";
 import { getLang } from "@/server/i18n/lang";
 import { getHospitalName, getHospitalPage, type HospitalPage } from "@/server/reservations/queries";
@@ -16,7 +17,7 @@ import { getHospitalName, getHospitalPage, type HospitalPage } from "@/server/re
 export async function generateMetadata({ params }: PageProps<"/hospitals/[hospital]">): Promise<Metadata> {
   const [{ hospital: key }, lang] = await Promise.all([params, getLang()]);
   const h = await getHospitalName(key);
-  return { title: h ? `${lang === "bn" ? h.nameBn : h.nameEn} — JibonSetu` : "JibonSetu" };
+  return { title: h ? `${lang === "bn" ? h.nameBn : h.nameEn} — Rokkha` : "Rokkha" };
 }
 
 type Params = Promise<{ hospital: string }>;
@@ -54,31 +55,43 @@ async function HospitalBody({ params }: { params: Params }) {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold break-words">{name}</h1>
-        <p className="text-sm break-words text-zinc-600 dark:text-zinc-400">{info.address}</p>
-        <TypeBadges type={info.type} freeService={info.freeService} lang={lang} />
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <HospitalPhone phone={info.phone} isDemo={h.isDemo} name={name} lang={lang} />
-        <Call999Button lang={lang} />
-      </div>
+      <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-extrabold break-words">{name}</h1>
+            {h.isDemo && (
+              <span
+                data-testid="hospital-demo-tag"
+                className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning-text)]"
+              >
+                {finder.demoTag[lang]}
+              </span>
+            )}
+          </div>
+          <p className="text-sm break-words text-[var(--text-muted)]">{info.address}</p>
+          <TypeBadges type={info.type} freeService={info.freeService} lang={lang} />
+        </div>
+        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:flex-wrap sm:items-center">
+          <HospitalPhone phone={info.phone} isDemo={h.isDemo} name={name} lang={lang} />
+          <Call999Button lang={lang} />
+        </div>
+      </section>
 
-      <section aria-labelledby="stock-title" className="flex flex-col gap-2">
+      <section aria-labelledby="stock-title" className="flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs">
         <h2 id="stock-title" className="text-lg font-bold">{realtime.stockTitle[lang]}</h2>
         {h.liveDataEnabled ? (
           <>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">{realtime.liveNote[lang]}</p>
+            <p className="text-sm text-[var(--text-muted)]">{realtime.liveNote[lang]}</p>
             <LiveStockTable hospitalId={h.id} initial={rows} lang={lang} />
           </>
         ) : (
-          <p data-testid="no-live-data" role="status" className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">
+          <p data-testid="no-live-data" role="status" className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3.5 py-2.5 text-sm font-medium text-[var(--warning-text)]">
             ⚠️ {realtime.noLiveData[lang]}
           </p>
         )}
       </section>
 
-      <Link href="/find" className="inline-flex min-h-11 items-center self-start text-sm font-semibold underline">
+      <Link href="/find" className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-[var(--brand-primary-text)] underline">
         ← {realtime.findHospital[lang]}
       </Link>
     </>

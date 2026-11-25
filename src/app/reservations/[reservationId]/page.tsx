@@ -12,7 +12,7 @@ import { getLang } from "@/server/i18n/lang";
 import { getConditionSummary, getMyReservation } from "@/server/reservations/queries";
 import type { ReservationView } from "@/server/reservations/view";
 
-export const metadata: Metadata = { title: "Reservation — JibonSetu" };
+export const metadata: Metadata = { title: "Reservation — Rokkha" };
 
 type Params = Promise<{ reservationId: string }>;
 
@@ -49,11 +49,11 @@ async function TrackerBody({ params }: { params: Params }) {
 
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold uppercase tracking-wide text-red-700 dark:text-red-400">{t.trackerTitle[lang]}</p>
-        <h1 className="text-2xl font-bold break-words">{hospitalName}</h1>
+      <div className="flex flex-col gap-1 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs">
+        <p className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary-text)]">{t.trackerTitle[lang]}</p>
+        <h1 className="text-2xl font-extrabold break-words">{hospitalName}</h1>
         {condition && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{lang === "bn" ? condition.nameBn : condition.nameEn}</p>
+          <p className="text-sm text-[var(--text-muted)]">{lang === "bn" ? condition.nameBn : condition.nameEn}</p>
         )}
       </div>
       <Tracker initial={toTracker(view)} serverNowMs={serverNow()} lang={lang} />
@@ -64,13 +64,13 @@ async function TrackerBody({ params }: { params: Params }) {
           <Link
             href={`/first-aid/${encodeURIComponent(condition.code)}`}
             data-testid="first-aid-link"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-green-700 px-4 font-semibold text-green-800 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-950"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--brand-primary)] bg-[var(--bg-brand-tint)] px-4 font-semibold text-[var(--brand-primary-text)] hover:opacity-90"
           >
             🩹 {t.firstAidLink[lang]}
           </Link>
         )}
       </div>
-      <Link href="/reservations" className="inline-flex min-h-11 items-center self-start text-sm font-semibold underline">
+      <Link href="/reservations" className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-[var(--brand-primary-text)] underline">
         ← {t.myReservations[lang]}
       </Link>
     </>

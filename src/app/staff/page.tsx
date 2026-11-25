@@ -5,7 +5,7 @@ import { ConsoleSkeleton } from "@/components/staff/ConsoleSkeleton";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { firstLiveHospitalId } from "@/server/resources/queries";
 
-export const metadata: Metadata = { title: "Staff console — JibonSetu" };
+export const metadata: Metadata = { title: "Staff console — Rokkha" };
 
 /** /staff only routes to the right hospital console; the session is request-time, hence <Suspense>. */
 export default function StaffPage() {

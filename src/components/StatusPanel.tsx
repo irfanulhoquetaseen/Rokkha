@@ -30,13 +30,13 @@ export function StatusPanel() {
   const apiText = healthError ? "unreachable" : health ? `${health.status} (db ${health.db})` : "checking…";
 
   return (
-    <section aria-label="System status" className="w-full max-w-sm rounded-lg border border-zinc-300 p-4 text-sm">
-      <h2 className="mb-2 font-semibold">System status</h2>
-      <dl className="grid grid-cols-2 gap-y-1">
-        <dt>API health</dt>
-        <dd data-testid="api-health">{apiText}</dd>
-        <dt>Socket.io</dt>
-        <dd data-testid="socket-status">{socketState}</dd>
+    <section aria-label="System status" className="w-full max-w-sm rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 text-sm shadow-xs">
+      <h2 className="mb-3 text-base font-bold">System status</h2>
+      <dl className="grid grid-cols-2 gap-y-2">
+        <dt className="text-[var(--text-muted)]">API health</dt>
+        <dd data-testid="api-health" className="font-semibold text-[var(--brand-primary-text)]">{apiText}</dd>
+        <dt className="text-[var(--text-muted)]">Socket.io</dt>
+        <dd data-testid="socket-status" className="font-semibold text-[var(--brand-primary-text)]">{socketState}</dd>
       </dl>
     </section>
   );

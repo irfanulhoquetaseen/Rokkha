@@ -1,7 +1,8 @@
 import type { Bilingual } from "@/lib/errors";
 
 export const auth = {
-  appName: { bn: "জীবনসেতু", en: "JibonSetu" },
+  appName: { bn: "রক্ষা", en: "Rokkha" },
+  tagline: { bn: "জরুরি মুহূর্তে, সঠিক হাসপাতাল", en: "The right hospital, right when it matters" },
   login: { bn: "লগইন", en: "Login" },
   signup: { bn: "সাইন আপ", en: "Sign up" },
   logout: { bn: "লগআউট", en: "Logout" },

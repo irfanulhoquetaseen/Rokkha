@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { admin } from "@/lib/i18n/admin";
 import { requireAdminPage } from "@/server/admin/page-guard";
 
-export const metadata: Metadata = { title: "Admin — JibonSetu" };
+export const metadata: Metadata = { title: "Admin — Rokkha" };
 
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
@@ -21,19 +21,19 @@ async function AdminGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        <h1 className="text-lg font-bold text-purple-800 dark:text-purple-300">{admin.title[lang]}</h1>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 shadow-xs">
+        <h1 className="text-lg font-extrabold text-[var(--brand-primary-text)]">{admin.title[lang]}</h1>
         <nav className="flex flex-wrap items-center gap-1" aria-label={admin.navLabel[lang]}>
-          <Link href="/admin" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <Link href="/admin" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold hover:bg-[var(--bg-subtle)]">
             {admin.hospitals[lang]}
           </Link>
-          <Link href="/admin/users" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <Link href="/admin/users" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold hover:bg-[var(--bg-subtle)]">
             {admin.users[lang]}
           </Link>
-          <Link href="/admin/audit" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <Link href="/admin/audit" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold hover:bg-[var(--bg-subtle)]">
             {admin.auditLog[lang]}
           </Link>
-          <Link href="/admin/analytics" className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <Link href="/admin/analytics" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold hover:bg-[var(--bg-subtle)]">
             {admin.analytics[lang]}
           </Link>
         </nav>

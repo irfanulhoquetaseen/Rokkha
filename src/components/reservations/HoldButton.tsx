@@ -26,12 +26,12 @@ export type HoldButtonProps = {
 };
 
 const soldOutBtn =
-  "inline-flex min-h-12 w-full items-center justify-center rounded-lg border-2 border-zinc-300 bg-zinc-100 px-4 py-2 text-center text-base font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-4 py-2 text-center text-base font-semibold text-[var(--text-muted)]";
 
 type Failure = { message: Bilingual; limit?: boolean; login?: boolean };
 
 const btn =
-  "inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-red-700 px-4 py-2 text-center text-base font-bold text-white hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-wait disabled:opacity-70";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[var(--emergency)] px-4 py-2 text-center text-base font-bold text-white shadow-xs transition-colors hover:bg-[var(--emergency-hover)] disabled:cursor-wait disabled:opacity-70";
 
 /** "Hold <name> for 30 min (<n> left)", with the live count in its own element (`hold-available`) for tests. */
 function HoldLabel({ resource, lang }: { resource: HoldResource; lang: Lang }) {

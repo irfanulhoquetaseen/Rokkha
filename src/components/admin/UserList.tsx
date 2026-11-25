@@ -14,9 +14,9 @@ export type UserPageData = { items: UserRow[]; total: number; page: number; page
 export type HospitalOption = { id: string; nameEn: string; nameBn: string };
 
 const inputCls =
-  "min-h-11 w-full rounded-md border border-zinc-300 bg-transparent px-3 text-sm outline-none focus:border-purple-700 focus:ring-2 focus:ring-purple-700/30 dark:border-zinc-700 dark:bg-zinc-900";
+  "min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/25";
 const btnCls =
-  "inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 export function UserList({
   lang, initial, hospitals,
@@ -114,9 +114,9 @@ export function UserList({
       {data.items.length === 0 ? (
         <p className="py-8 text-center text-sm text-zinc-500">{admin.noUsers[lang]}</p>
       ) : (
-        <div className={`overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div className={`overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs transition-opacity ${loading ? "opacity-60" : ""}`}>
           <table className="w-full text-left text-sm" data-testid="admin-users-table">
-            <thead className="border-b border-zinc-200 dark:border-zinc-700">
+            <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
               <tr>
                 <th className="px-3 py-2 font-medium">{admin.userName[lang]}</th>
                 <th className="px-3 py-2 font-medium">{admin.phone[lang]}</th>
@@ -218,10 +218,10 @@ function RoleChangeForm({
       onSubmit={save}
       noValidate
       aria-label={admin.changeRole[lang]}
-      className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
+      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs"
     >
       <h3 className="mb-1 font-bold">{admin.changeRole[lang]}</h3>
-      <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{target.name} ({target.phone})</p>
+      <p className="mb-3 text-sm text-[var(--text-muted)]">{target.name} ({target.phone})</p>
       <div className="flex flex-wrap gap-3">
         <div className="flex flex-col gap-1">
           <label htmlFor="rc-role" className="text-xs font-medium">{admin.role[lang]}</label>
@@ -254,14 +254,14 @@ function RoleChangeForm({
         <button
           type="submit"
           disabled={saving || (newRole === "HOSPITAL_STAFF" && !hospitalId)}
-          className={`${btnCls} bg-purple-700 px-4 text-white hover:bg-purple-800`}
+          className={`${btnCls} bg-[var(--brand-primary)] px-4 text-white hover:bg-[var(--brand-primary-hover)]`}
         >
           {saving ? admin.saving[lang] : admin.save[lang]}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className={`${btnCls} border border-zinc-300 px-4 dark:border-zinc-700`}
+          className={`${btnCls} border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 hover:bg-[var(--bg-subtle)]`}
         >
           {admin.cancel[lang]}
         </button>
