@@ -1,6 +1,6 @@
 # P6 Admin Area Report (25 Nov 2026)
 
-Branch: `admin` (not merged into `main`).
+Branch: `admin` merged into `main` (`b351df2`, `--no-ff`) and deployed live to `https://web-production-3fb89dc8.up.railway.app`.
 
 ## What was built
 1. **Admin area & guards (`/admin`, `ADMIN` role only)**
@@ -41,19 +41,25 @@ Branch: `admin` (not merged into `main`).
    - Imports and reuses `resetDemoHospitalsStock` / `resetHospitalStockRows` from `src/server/seed/run-seed.ts` (zero duplicated stock-reset logic; hold-aware; affects active `isDemo: true` hospitals only), writes `AuditLog`, and publishes `stock:changed` after commit.
 
 ## Database migration status
-- `20261125030000_p6_hospital_archived` was created without modifying `DATABASE_URL` (live production DB).
-- Applied to test DB (`jibonsetu_test` via `DATABASE_URL_TEST`).
-- Verified via `npx prisma migrate status` against `DATABASE_URL`: `20261125030000_p6_hospital_archived` has **not yet been applied** to the live DB (`railway`).
+- `20261125030000_p6_hospital_archived` was created without modifying `DATABASE_URL` during development (`npx prisma migrate dev --create-only`) and verified first against `jibonsetu_test` (`DATABASE_URL_TEST`).
+- Post-merge Railway deploy executed `prisma migrate deploy`, applying `20261125030000_p6_hospital_archived` to the live DB (`railway` at `yamabiko.proxy.rlwy.net:36777`).
+- Confirmed via read-only `npx prisma migrate status` against `DATABASE_URL`: **6 migrations found in `prisma/migrations` — `Database schema is up to date!`**
 
-## Test counts & verification
+## Test counts & verification (post-final code edit `949b61c` / merge `b351df2`)
 | Check | Scope | Result |
 |---|---|---|
 | `npm run typecheck` | `next typegen && tsc --noEmit` | ✅ clean |
 | `npm run lint` | `eslint .` | ✅ clean (0 errors, 0 warnings) |
-| `npm run build` | `prisma generate && next build && npm run build:server` | ✅ clean |
-| `npm test` (Vitest) | Unit (17 files, 113 tests) + Integration against `jibonsetu_test` (17 files, 198 tests, incl. 10 new admin/CSV/race/404 tests) | ✅ **311 / 311 passed** (34 files) |
-| `tests/e2e/admin.spec.ts` + `realtime-finder.spec.ts` | Mobile 360×800 + Desktop 1440×900 (guard 307/404, login, create w/ resources, Finder visibility, edit, hold blocks archive, cancel → archive → vanish from Finder & `/hospitals/<slug>` 404, subpages, demo refresh confirmation, live Finder) | ✅ **12 / 12 passed** |
-| `npm run test:e2e` (`--workers=4`, pre-follow-up full run) | Full Playwright suite (120 tests across mobile + desktop) | **119 / 120 passed**; 1 transient `ECONNRESET` on `[mobile] realtime-acceptance:352` which passed on immediate rerun (`1 / 1`, and `14 / 14` on `realtime-finder + realtime-acceptance`) |
+| `npm run build` | Pre-follow-up local build + Railway production build & deploy (`b351df2`) | ✅ clean / deployed live |
+| `npm test -- --reporter=dot` | Unit (17 files, 113 tests) + Integration against `jibonsetu_test` (17 files, 200 tests, incl. 12 in `tests/integration/admin.test.ts` with deterministic + 15-iteration `Promise.allSettled` archive-vs-reserve race coverage) | ✅ **313 / 313 passed** (34 files) |
+| `npm run test:e2e -- --reporter=line --workers=2 --retries=1` | Full Playwright suite across mobile (`360×800`) + desktop (`1440×900`) | ✅ **120 / 120 passed** (`5.0m`, zero retries; latency (a): `810 ms` mobile, `789 ms` desktop) |
+
+## Live URL verification (`https://web-production-3fb89dc8.up.railway.app`)
+- `GET /api/health`: `200 {"status":"ok","db":"up","time":"2026-11-25T06:44:14.710Z"}`
+- Anonymous `GET /admin`: `307` redirect to `/login?next=%2Fadmin`
+- Admin login (`01700000001`): `200`; `GET /admin`, `/admin/users`, `/admin/audit`, `/admin/analytics` -> all `200` (`hasTitle=true`, `hasFallback=false`); `GET /api/admin/hospitals`, `/api/admin/users`, `/api/admin/audit`, `/api/admin/analytics` -> all `200`
+- Citizen login (`01700000021`): `200`; `GET /admin`, `/admin/users`, `/admin/audit`, `/admin/analytics`, `/api/admin/hospitals` -> all `404`
+- Non-mutating Playwright E2E against live URL (`tests/e2e/admin.spec.ts -g "logged-out /admin|demo stock refresh"`): **4 / 4 passed** in `5.6s` (mobile `360×800` + desktop `1440×900`)
 
 ## Not done / deferred
 - Admin editors for `Condition`, `ConditionRequirement`, and `FirstAidGuide` (beyond Prompt #4 scope; tracked for follow-up).

@@ -2,7 +2,7 @@
 
 ## Current phase
 P1–P5: **done** and verified live (25 Nov 2026, deploy `ceaacc7`). Report: `docs/reports/P4-P5.md`.
-P6 core (Admin area + CSV import): **done** on branch `admin` (pending review/merge + `prisma migrate deploy` on live). Report: `docs/reports/P6-admin.md`. Next: remaining P6 (PWA / Lighthouse / condition & first-aid admin editors if prioritized) → **P7**.
+P6 core (Admin area + CSV import): **done**, merged into `main` (`b351df2`, `--no-ff`), migrated, and verified live on Railway (25 Nov 2026). Report: `docs/reports/P6-admin.md`. Next: remaining P6 (PWA / Lighthouse / condition & first-aid admin editors if prioritized) → **P7**.
 
 ## Done
 - **P0** Foundation: Next.js 16.4.6 + custom `server.ts` (Next + Socket.io 4.8.4 on one port), Prisma 7.10.1 + Postgres 18 on Railway Singapore, `/api/health`, live deploy. Auto-deploy on push to `main` proven (GitHub trigger on the `web` service).
@@ -21,7 +21,7 @@ P6 core (Admin area + CSV import): **done** on branch `admin` (pending review/me
 - **P4** Reservation engine (A05): state machine (CAS transitions), `reserve()` in one transaction (advisory lock → per-user limits → conditional decrement → reservation + event + audit; SOLD_OUT with 3 alternatives), Idempotency-Key, clamped stock return, expiry sweeper (30 s + boot + lazy), FK `Reservation.userId`, hold-aware `SEED_RESET_STOCK`, `npm run demo:race`.
 - **P5 Task 2/5** Client socket core (version gate, coalescer, reconnect banner, refetch on (re)connect and on `online`); multi-context acceptance E2E (`realtime-acceptance.spec.ts`).
 - **P5 final wave** (`ceaacc7`): no false "changed elsewhere" hint from a staff member's own save echo; signed-out Finder card with only sold-out rows says "Nothing left to hold here"; room cap re-checked right before `socket.join`. Task 6 (presence) skipped.
-- **P6 Admin area (`/admin`, role `ADMIN` only, branch `admin`)**:
+- **P6 Admin area (`/admin`, role `ADMIN` only, merged into `main` in `b351df2`)**:
   - Auth & routing: `src/proxy.ts` (`adminGate`), `src/server/admin/page-guard.ts` (`requireAdminPage`), and all `/admin` pages + `/api/admin/*` routes enforce `requireRole(user, "ADMIN")` (signed-out → 307 `/login?next=...`, signed-in non-admin → real 404 + `AUTHZ_DENIED` audit). Bilingual `src/lib/i18n/admin.ts`, `SiteHeader` Admin link, mobile-first accessible UI (≥ 44 px touch targets, `htmlFor` labels), DEMO DATA banner intact.
   - Hospitals CRUD & archive (`src/server/admin/hospitals.ts`, `/api/admin/hospitals/**`, `/admin`): search (name, district), filters (type, liveDataEnabled, archived), sort (nameEn, district, updatedAt), pagination; Zod-validated create/edit with Bangladesh bounds (`lat 20.5–26.7`, `lng 88.0–92.7`); transactional initial `HospitalResource` creation; hard-delete if 0 reservations, archive (`archivedAt` in `20261125030000_p6_hospital_archived`) otherwise; `HospitalResource` `FOR UPDATE` row lock before counting holds + post-`takeStock` `archivedAt` re-check in `reserve()` prevent archive-vs-reserve races; active `HELD`/`ARRIVED` reservations block archive with 409 `CONFLICT` (after lazy expiry of overdue holds); archived hospitals excluded from Finder, directory, `/hospitals/<slug>` (real 404 via `src/proxy.ts`), alternatives, and `reserve()`; `AuditLog` (`old → new`) in the same transaction + post-commit `publishStock` finder refresh.
   - Optional CSV hospital import (`src/lib/csv.ts`, `src/server/admin/csv-import.ts`, `/api/admin/hospitals/import`): RFC-4180 parser, per-row Zod validation, in-file duplicate slug detection, idempotent re-import by `slug`, per-row status/error report.
@@ -31,7 +31,7 @@ P6 core (Admin area + CSV import): **done** on branch `admin` (pending review/me
   - Demo stock refresh (`src/server/admin/demo-refresh.ts`, `/api/admin/demo-refresh`): in-page confirmation importing `resetDemoHospitalsStock` / `resetHospitalStockRows` from `src/server/seed/run-seed.ts` (no duplicated logic, hold-aware, `isDemo: true` & unarchived only, audited, live publish).
 
 ## Next
-- Review & merge `admin` into `main` (runs `prisma migrate deploy` for `20261125030000_p6_hospital_archived`), remaining P6 items (PWA offline first-aid, condition/first-aid CRUD if needed), **P7** hardening & live Lighthouse.
+- Remaining P6 items (PWA offline first-aid, condition/first-aid CRUD if needed), **P7** hardening & live Lighthouse.
 
 ## Known issues
 - Bangla first-aid text needs a native-speaker proofread (content is sourced and reviewed for fidelity, translation not proofread by a native speaker).
@@ -47,8 +47,7 @@ P6 core (Admin area + CSV import): **done** on branch `admin` (pending review/me
 - Directory section lists only directory-only hospitals and is unpaginated (5 rows); full "browse all hospitals" directory is tracked for P6.
 - Live Finder: the sold-out row kept on a card is the patient's preferred blood row; if a citizen loses the race for a *different* compatible donor group, a refresh may re-pick the blood row and unmount that button (beds/vaccines etc. are unaffected).
 - Finder ranks all live hospitals in memory per request (fine at 20 live hospitals; document scale assumption in P7).
-- Migration `20261125030000_p6_hospital_archived` has been applied to `jibonsetu_test` (`DATABASE_URL_TEST`) only and is **not yet applied** to the live production DB (`railway`).
-- `src/server/reservations/reserve.ts`, `src/server/reservations/alternatives.ts`, and `src/server/reservations/queries.ts` received minimal surgical edits (`archivedAt` checks/filters) as required by Prompt #4 §1a ("Archived hospitals ... cannot be reserved") and the follow-up ensuring `/hospitals/<slug>` returns 404 when archived.
+- `src/server/reservations/reserve.ts`, `src/server/reservations/alternatives.ts`, and `src/server/reservations/queries.ts` received minimal surgical edits (`archivedAt` checks/filters, including the post-decrement `archivedAt` re-check in `reserve.ts` closing the archive-vs-reserve window under `READ COMMITTED`) as required by Prompt #4 §1a ("Archived hospitals ... cannot be reserved") and the follow-up ensuring `/hospitals/<slug>` returns 404 when archived.
 - Prompt #4 scope covered admin hospitals (+ CSV import), users, audit viewer, SQL analytics, and demo stock refresh; Condition/FirstAidGuide admin editors, full paginated hospital directory, and PWA offline service worker remain for follow-up.
 
 ## Must-do in P4
