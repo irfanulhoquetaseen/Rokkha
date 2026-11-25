@@ -8,32 +8,32 @@ JibonSetu runs as a single long-lived Node.js 24 process hosting Next.js 16 (App
 
 ```mermaid
 flowchart LR
-  subgraph Clients["Clients (Mobile 360px & Desktop 1440px)"]
-    Citizen["Citizen Browser\nSSR Pages + Live Finder / Tracker"]
-    Staff["Staff Browser\nResource Console + Queue"]
+  subgraph Clients["Clients - Mobile 360px & Desktop 1440px"]
+    Citizen["Citizen Browser\nSSR Pages & Live Finder or Tracker"]
+    Staff["Staff Browser\nResource Console & Queue"]
     Admin["Admin Browser\nCRUD, CSV, Users, Audit, Analytics"]
   end
 
-  subgraph AppServer["Railway Web Service (Singapore) — Single Node.js 24 Process (server.ts)"]
-    Proxy["src/proxy.ts\nRequest-time 307 / 404 Gate"]
-    NextApp["Next.js 16.4 App Router\nRSC Pages + Zod-validated Route Handlers"]
-    Engine["Domain Services (src/server/*)\nMatching, Reserve Engine, State Machine, Admin"]
-    Sweeper["Expiry Sweeper (30s interval + boot)\nCAS EXPIRED + Stock Return"]
-    Socket["Socket.io Server (/socket.io)\nSame-origin + Session Cookie Auth"]
+  subgraph AppServer["Railway Web Service Singapore — Single Node.js 24 Process"]
+    Proxy["src/proxy.ts\nRequest-time 307 or 404 Gate"]
+    NextApp["Next.js 16.4 App Router\nRSC Pages & Zod Route Handlers"]
+    Engine["Domain Services src/server\nMatching, Reserve Engine, State Machine, Admin"]
+    Sweeper["Expiry Sweeper 30s interval & boot\nCAS EXPIRED & Stock Return"]
+    Socket["Socket.io Server /socket.io\nSame-origin & Session Cookie Auth"]
   end
 
-  subgraph DB["Railway PostgreSQL 18 (Singapore)"]
-    PG[("PostgreSQL\nPrisma 7 (@prisma/adapter-pg)\nCHECK constraints & partial unique index")]
+  subgraph DB["Railway PostgreSQL 18 Singapore"]
+    PG[("PostgreSQL\nPrisma 7 adapter-pg\nCHECK & partial unique constraints")]
   end
 
-  Citizen <-->|"HTTP + Cookie"| Proxy
-  Staff <-->|"HTTP + Cookie"| Proxy
-  Admin <-->|"HTTP + Cookie"| Proxy
-  Citizen <-->|"WebSocket / Polling"| Socket
-  Staff <-->|"WebSocket / Polling"| Socket
+  Citizen <-->|"HTTP & Cookie"| Proxy
+  Staff <-->|"HTTP & Cookie"| Proxy
+  Admin <-->|"HTTP & Cookie"| Proxy
+  Citizen <-->|"WebSocket or Polling"| Socket
+  Staff <-->|"WebSocket or Polling"| Socket
   Proxy --> NextApp
   NextApp --> Engine
-  Engine <-->|"$transaction / Raw SQL"| PG
+  Engine <-->|"transaction or Raw SQL"| PG
   Sweeper <-->|"Overdue HELD Batch"| PG
   Engine -.->|"Emit after commit"| Socket
   Sweeper -.->|"Emit after commit"| Socket
@@ -50,39 +50,39 @@ sequenceDiagram
   autonumber
   participant C as Citizen Client
   participant API as POST /api/reservations
-  participant R as reserve() / reserveTx
-  participant DB as PostgreSQL (READ COMMITTED)
+  participant R as reserve and reserveTx
+  participant DB as PostgreSQL READ COMMITTED
   participant IO as Socket.io
-  participant O as Finder / Staff / Hospital Clients
+  participant O as Finder Staff and Hospital Clients
 
-  C->>API: POST {hospitalId, resourceCode, quantity} + Origin + Idempotency-Key (UUID)
-  API->>R: requireRole(CITIZEN) + reserveLimiterByUser + Zod validate
-  R->>DB: expireOverdue(now, {userId}) in separate short transactions
-  R->>DB: BEGIN $transaction
-  R->>DB: SELECT pg_advisory_xact_lock(hashtextextended(userId, 0))
+  C->>API: POST hospitalId, resourceCode, quantity + Origin + Idempotency-Key
+  API->>R: requireRole CITIZEN + reserveLimiterByUser + Zod validate
+  R->>DB: expireOverdue by userId in separate short transactions
+  R->>DB: BEGIN transaction
+  R->>DB: SELECT pg_advisory_xact_lock per userId
   R->>DB: Lookup Reservation by idempotencyKey
-  alt Key already exists for same user + same requestHash
-    R-->>API: Return original ReservationView (replayed = true)
+  alt Key exists for same user and hash
+    R-->>API: Return original ReservationView replayed true
   else Fresh key
-    R->>DB: Verify HospitalResource exists, COUNTABLE, liveDataEnabled, archivedAt IS NULL
-    R->>DB: Check active holds (<= 1 per type, <= 2 total active)
-    R->>DB: UPDATE HospitalResource SET available = available - qty, version + 1 WHERE id = ? AND available >= qty
-    alt count == 0 (Sold out)
-      R->>DB: INSERT SoldOutEvent ON CONFLICT (idempotencyKey) DO NOTHING
+    R->>DB: Verify HospitalResource COUNTABLE, liveDataEnabled, archivedAt IS NULL
+    R->>DB: Check active holds at most 1 per type and 2 total
+    R->>DB: UPDATE HospitalResource available - qty, version + 1 WHERE available >= qty
+    alt count is 0 Sold out
+      R->>DB: INSERT SoldOutEvent ON CONFLICT idempotencyKey DO NOTHING
       R->>DB: COMMIT
-      R->>DB: findAlternatives(max 3)
+      R->>DB: findAlternatives max 3
       R-->>API: 409 SOLD_OUT + alternatives
-    else count == 1 (Stock locked & decremented)
+    else count is 1 Stock locked and decremented
       R->>DB: Re-read Hospital.archivedAt while holding row lock
-      alt archivedAt IS NOT NULL (Concurrent archive won)
+      alt archivedAt IS NOT NULL Concurrent archive won
         R->>DB: ROLLBACK
         R-->>API: 409 CONFLICT
       else Still active
-        R->>DB: INSERT Reservation (HELD, +30m) + ReservationEvent + AuditLog
+        R->>DB: INSERT Reservation HELD +30m + ReservationEvent + AuditLog
         R->>DB: COMMIT
-        R->>IO: publishStock(stock) to rooms finder, hospital:{id}, staff:{id}
-        R->>IO: publishReservation(res) to rooms reservation:{id}, staff:{id}
-        IO-->>O: stock:changed & reservation:changed (with entity version)
+        R->>IO: publishStock to rooms finder, hospital:id, staff:id
+        R->>IO: publishReservation to rooms reservation:id, staff:id
+        IO-->>O: stock:changed & reservation:changed with entity version
         R-->>API: 201 Created + ReservationView
       end
     end
@@ -102,12 +102,12 @@ Defined purely in `src/server/reservations/state-machine.ts` and executed via co
 
 ```mermaid
 stateDiagram-v2
-  [*] --> HELD : reserve() [-qty stock]
-  HELD --> ARRIVED : staff checkIn (requires expiresAt > now)
-  HELD --> CANCELLED : citizen cancel [+qty returned]
-  HELD --> EXPIRED : sweeper or lazy expire (expiresAt <= now) [+qty returned]
-  HELD --> REJECTED : staff reject (reason 3..300 chars) [+qty returned]
-  ARRIVED --> COMPLETED : staff complete [if !consumable: +qty returned; if consumable: no return]
+  [*] --> HELD : reserve decrements qty
+  HELD --> ARRIVED : staff checkIn before expiresAt
+  HELD --> CANCELLED : citizen cancel returns qty
+  HELD --> EXPIRED : sweeper or lazy expire returns qty
+  HELD --> REJECTED : staff reject with reason returns qty
+  ARRIVED --> COMPLETED : staff complete returns qty if non-consumable
   CANCELLED --> [*]
   EXPIRED --> [*]
   REJECTED --> [*]
@@ -123,7 +123,7 @@ stateDiagram-v2
 
 ```mermaid
 erDiagram
-  Hospital ||--o{ User : "binds staff (optional)"
+  Hospital ||--o{ User : "binds optional staff"
   Hospital ||--o{ HospitalResource : "owns"
   Hospital ||--o{ Reservation : "receives"
   Hospital ||--o{ SoldOutEvent : "logs unmet demand"
@@ -133,7 +133,7 @@ erDiagram
   ResourceType ||--o{ SoldOutEvent : "sold-out type"
   HospitalResource ||--o{ Reservation : "allocates stock"
   User ||--o{ Session : "authenticates"
-  User ||--o{ Reservation : "owns (Restrict)"
+  User ||--o{ Reservation : "owns restricted"
   Condition ||--o{ ConditionRequirement : "defines"
   Condition ||--|| FirstAidGuide : "links guide"
   Reservation ||--o{ ReservationEvent : "audits timeline"
@@ -174,7 +174,7 @@ erDiagram
     string hospitalId FK "nullable"
   }
   Session {
-    string id PK "sha256(token)"
+    string id PK "SHA-256 hex of token"
     string userId FK
     datetime expiresAt
     datetime lastSeenAt
