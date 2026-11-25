@@ -160,9 +160,13 @@ test("admin logs in, creates a hospital, edits it, archives it, and sees it vani
   await expect(page.getByText(admin.hospitalArchived.bn)).toBeVisible();
   await expect(row).toHaveCount(0);
 
-  // 6. Verify archived hospital vanished from Finder
+  // 6. Verify archived hospital vanished from Finder and /hospitals/<slug> returns real 404
   await page.goto("/find?condition=DENGUE&area=dhanmondi&radius=5&resource=ICU_BED&sort=freshness");
   await expect(page.getByText(updatedNameBn)).toHaveCount(0);
+  expect((await page.request.get(`/hospitals/${slug}`)).status()).toBe(404);
+  const archPublicNav = await page.goto(`/hospitals/${slug}`);
+  expect(archPublicNav?.status()).toBe(404);
+  await expect(page.getByText("This page could not be found.")).toBeVisible();
 
   // 7. Also verify admin Users, Audit, and Analytics subpages render cleanly at this viewport
   for (const [subpath, testid] of [

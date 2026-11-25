@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { NextRequest } from "next/server";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // `connection()` only works inside a Next request scope; route handlers are called directly here.
@@ -23,10 +24,12 @@ import { listAuditLogs } from "@/server/admin/audit-viewer";
 import { refreshDemoStock } from "@/server/admin/demo-refresh";
 import { createHospital, deleteOrArchiveHospital, listHospitals, updateHospital } from "@/server/admin/hospitals";
 import { changeUserRole, listUsers } from "@/server/admin/users";
+import { proxy } from "@/proxy";
 import { createSession, SESSION_COOKIE, validateSessionToken, type SessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { parseFinderParams } from "@/server/finder/params";
 import { listDirectory, searchHospitals } from "@/server/finder/search";
+import { getHospitalStock, hospitalExists } from "@/server/reservations/queries";
 import { reserve } from "@/server/reservations/reserve";
 import { resetDb } from "../support/db";
 import { ensureResourceType, makeHeld, makeHospitalWithStock, makeUser } from "../support/fixtures";
@@ -287,7 +290,72 @@ describe("admin hospitals CRUD, transactional resources, and delete vs archive",
     )).toBe("CONFLICT");
     expect(await errorCodeOf(() => updateHospital(admin, withHold.hospital.id, { nameEn: "Nope" }))).toBe("CONFLICT");
     expect((await getHospitalApi(getReq(`/api/admin/hospitals/${withHold.hospital.id}`, adminToken), { params: Promise.resolve({ hospitalId: withHold.hospital.id }) })).status).toBe(200);
+
+    // 6. Public hospital page & proxy return real 404 for archived hospitals
+    expect(await hospitalExists("has-active-hold")).toBe(false);
+    expect(await errorCodeOf(() => getHospitalStock("has-active-hold"))).toBe("NOT_FOUND");
+    const proxyRes = await proxy(new NextRequest("http://localhost/hospitals/has-active-hold"));
+    expect(proxyRes.status).toBe(404);
+    const activeProxyRes = await proxy(new NextRequest("http://localhost/hospitals/base-hospital"));
+    expect(activeProxyRes.status).toBe(200);
   });
+
+  it("archive vs reserve race never leaves a hospital both archived and holding a HELD reservation", async () => {
+    const raceH = await makeHospitalWithStock({
+      slug: "archive-reserve-race",
+      stock: [{ code: "ICU_BED", total: 30, available: 30 }],
+    });
+    // Seed one past terminal reservation so deleteOrArchiveHospital always takes the archive path.
+    await prisma.reservation.create({
+      data: {
+        userId: citizen.id,
+        hospitalId: raceH.hospital.id,
+        resourceTypeId: raceH.types.ICU_BED.id,
+        hospitalResourceId: raceH.resources.ICU_BED.id,
+        status: "CANCELLED",
+        cancelledAt: new Date(),
+        expiresAt: new Date(),
+        idempotencyKey: randomUUID(),
+        requestHash: "seed-terminal",
+      },
+    });
+
+    let archiveWon = 0;
+    let reserveWon = 0;
+    const iterations = 15;
+    for (let i = 0; i < iterations; i++) {
+      // Reset hospital to unarchived and cancel any prior HELD row before each concurrent race
+      await prisma.reservation.updateMany({
+        where: { hospitalId: raceH.hospital.id, status: "HELD" },
+        data: { status: "CANCELLED", cancelledAt: new Date() },
+      });
+      await prisma.hospital.update({ where: { id: raceH.hospital.id }, data: { archivedAt: null } });
+
+      const doArchive = () => deleteOrArchiveHospital(admin, raceH.hospital.id);
+      const doReserve = () =>
+        reserve(citizen, {
+          idempotencyKey: randomUUID(),
+          body: { hospitalId: raceH.hospital.id, resourceCode: "ICU_BED", quantity: 1 },
+        });
+
+      const results = i % 2 === 0
+        ? await Promise.allSettled([doArchive(), doReserve()])
+        : await Promise.allSettled([doReserve(), doArchive()]);
+
+      const archRes = i % 2 === 0 ? results[0] : results[1];
+      const resvRes = i % 2 === 0 ? results[1] : results[0];
+      if (archRes.status === "fulfilled") archiveWon++;
+      if (resvRes.status === "fulfilled") reserveWon++;
+
+      // Invariant: NEVER archived AND holding an active HELD reservation, and never both succeed
+      expect(archRes.status === "fulfilled" && resvRes.status === "fulfilled").toBe(false);
+      const row = await prisma.hospital.findUniqueOrThrow({ where: { id: raceH.hospital.id } });
+      const heldCount = await prisma.reservation.count({ where: { hospitalId: raceH.hospital.id, status: "HELD" } });
+      if (row.archivedAt !== null) expect(heldCount).toBe(0);
+      if (heldCount > 0) expect(row.archivedAt).toBeNull();
+    }
+    expect(archiveWon + reserveWon).toBe(iterations);
+  }, 60_000);
 });
 
 describe("admin users, role changes, and session revocation", () => {
