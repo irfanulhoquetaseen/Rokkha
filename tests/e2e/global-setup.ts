@@ -36,6 +36,7 @@ export default async function globalSetup(config: FullConfig) {
     await res.text();
   }
   await warmStaffConsole(baseURL);
+  await warmAdminPages(baseURL);
 }
 
 /**
@@ -75,5 +76,29 @@ async function warmStaffConsole(baseURL: string) {
     method: "PATCH", headers: { origin, "content-type": "application/json" }, body: "{}",
   });
   if (patch.status !== 400) throw new Error(`Warm-up of the staff PATCH API: expected HTTP 400, got ${patch.status}`);
+  await get("/api/auth/logout", { method: "POST", headers: { origin } });
+}
+
+async function warmAdminPages(baseURL: string) {
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  if (!password) throw new Error("SEED_ADMIN_PASSWORD must be set (in .env) for the admin E2E warm-up");
+  const origin = new URL(baseURL).origin;
+  const login = await fetch(new URL("/api/auth/login", baseURL), {
+    method: "POST",
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify({ phone: "01700000001", password }),
+  });
+  if (!login.ok) throw new Error(`Admin warm-up login failed with HTTP ${login.status}`);
+  await login.text();
+  const cookie = login.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const get = async (path: string, init: RequestInit = {}) => {
+    const res = await fetch(new URL(path, baseURL), { redirect: "manual", ...init, headers: { cookie, ...init.headers } });
+    await res.text();
+    return res;
+  };
+  for (const path of ["/admin", "/admin/users", "/admin/audit", "/admin/analytics", "/api/admin/hospitals", "/api/admin/users", "/api/admin/audit", "/api/admin/analytics"]) {
+    const r = await get(path);
+    if (!r.ok) throw new Error(`Warm-up of ${path} failed with HTTP ${r.status}`);
+  }
   await get("/api/auth/logout", { method: "POST", headers: { origin } });
 }

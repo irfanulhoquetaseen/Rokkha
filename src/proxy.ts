@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AppError } from "@/lib/errors";
-import { requireHospitalAccess, requireReservationOwner } from "@/server/auth/guards";
+import { requireHospitalAccess, requireReservationOwner, requireRole } from "@/server/auth/guards";
 import { SESSION_COOKIE, validateSessionToken } from "@/server/auth/session";
 import { firstAidGuideExists } from "@/server/finder/search";
 import { hospitalExists } from "@/server/reservations/queries";
@@ -21,6 +21,7 @@ export async function proxy(req: NextRequest) {
     if (pathname.startsWith("/first-aid/")) return await firstAidGate(req, pathname);
     if (pathname.startsWith("/hospitals/")) return await hospitalGate(req, pathname);
     if (pathname === "/reservations" || pathname.startsWith("/reservations/")) return await reservationsGate(req, pathname);
+    if (pathname === "/admin" || pathname.startsWith("/admin/")) return await adminGate(req, pathname);
     return await staffGate(req, pathname);
   } catch (e) {
     if (e instanceof AppError) return notFound(req);
@@ -47,7 +48,7 @@ async function firstAidGate(req: NextRequest, pathname: string) {
   return NextResponse.next();
 }
 
-/** /hospitals/<id or slug> (public): 404 unless that hospital exists. */
+/** /hospitals/<id or slug> (public): 404 unless that hospital exists and is not archived. */
 async function hospitalGate(req: NextRequest, pathname: string) {
   const m = /^\/hospitals\/([^/]+)\/?$/.exec(pathname);
   if (!m) return notFound(req);
@@ -120,6 +121,14 @@ function notFound(req: NextRequest) {
   return NextResponse.rewrite(new URL("/_proxy-not-found", req.url), { status: 404 });
 }
 
+/** /admin and /admin/*: ADMIN role required; signed-in non-admins get audited NOT_FOUND (404). */
+async function adminGate(req: NextRequest, pathname: string) {
+  const user = await sessionUser(req);
+  if (!user) return toLogin(req, pathname);
+  await requireRole(user, "ADMIN"); // AppError (audited AUTHZ_DENIED) → 404 in proxy()
+  return NextResponse.next();
+}
+
 export const config = {
-  matcher: ["/staff", "/staff/:path*", "/first-aid/:condition", "/hospitals/:hospital", "/reservations", "/reservations/:path*"],
+  matcher: ["/staff", "/staff/:path*", "/first-aid/:condition", "/hospitals/:hospital", "/reservations", "/reservations/:path*", "/admin", "/admin/:path*"],
 };

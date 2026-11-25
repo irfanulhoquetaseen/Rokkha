@@ -94,6 +94,7 @@ export async function listDirectory(params: FinderParams): Promise<DirectoryEntr
     orderBy: [{ nameEn: "asc" }, { id: "asc" }],
     where: {
       liveDataEnabled: false,
+      archivedAt: null,
       ...(params.type ? { type: params.type } : {}),
       ...(params.free ? { freeService: true } : {}),
     },
@@ -155,6 +156,7 @@ export async function searchHospitals(params: FinderParams, now: Date = new Date
     orderBy: { id: "asc" },
     where: {
       liveDataEnabled: true,
+      archivedAt: null,
       ...(params.type ? { type: params.type } : {}),
       ...(params.free ? { freeService: true } : {}),
     },

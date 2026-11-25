@@ -25,6 +25,7 @@ export const auth = {
     en: "No login is needed to find hospitals or read first aid. Log in only to reserve.",
   },
   staffConsole: { bn: "স্টাফ কনসোল", en: "Staff console" },
+  adminPanel: { bn: "অ্যাডমিন", en: "Admin" },
   switchLang: { bn: "English", en: "বাংলা" },
   switchLangLabel: { bn: "Switch to English", en: "বাংলায় দেখুন" },
   networkError: { bn: "সংযোগে সমস্যা, আবার চেষ্টা করুন", en: "Connection problem, please try again" },

@@ -1,9 +1,9 @@
-import type { PrismaClient } from "@/generated/prisma/client";
+import type { Prisma, PrismaClient, ResourceKind } from "@/generated/prisma/client";
 import { hashPassword } from "@/server/auth/password";
 import { BLOOD_COMPATIBILITY, type BloodCode } from "../../../prisma/data/blood";
 import { CONDITIONS } from "../../../prisma/data/conditions";
 import { FIRST_AID } from "../../../prisma/data/first-aid";
-import { HOSPITALS, profileCounts, profileStatusOn } from "../../../prisma/data/hospitals";
+import { HOSPITALS, type HospitalSeed, profileCounts, profileStatusOn } from "../../../prisma/data/hospitals";
 import { RESOURCE_TYPES } from "../../../prisma/data/resource-types";
 
 export const DEMO_ACCOUNTS = {
@@ -30,6 +30,115 @@ export type SeedOptions = {
 };
 
 const STALE_MS = 45 * 60_000;
+
+export type StockResetTarget = {
+  resourceTypeId: string;
+  total: number;
+  available: number;
+  isAvailable: boolean;
+  isStatus: boolean;
+};
+
+/** Compute target stock rows for one seeded hospital. */
+export function buildSeedStockTargets(
+  h: HospitalSeed,
+  types: readonly { id: string; code: string; kind: ResourceKind }[],
+): StockResetTarget[] {
+  const counts = profileCounts(h.profile);
+  const statusOn = new Set(profileStatusOn(h.profile));
+  for (const code of h.statusOff ?? []) statusOn.delete(code);
+
+  return types.map((t) => {
+    if (t.kind === "STATUS") {
+      return { resourceTypeId: t.id, total: 0, available: 0, isAvailable: statusOn.has(t.code), isStatus: true };
+    }
+    const override = h.stock?.[t.code];
+    const total = override ? override[0] : (counts[t.code] ?? 0);
+    const available = override ? override[1] : Math.ceil(total * 0.6);
+    return { resourceTypeId: t.id, total, available, isAvailable: available > 0, isStatus: false };
+  });
+}
+
+/**
+ * Hold-aware stock reset for one hospital (one round trip per hospital).
+ * Used by both `SEED_RESET_STOCK=1` and the admin "Refresh demo stock" action:
+ * keeps `total >= held` and sets `available = GREATEST(0, targetAvailable - held)`.
+ */
+export async function resetHospitalStockRows(
+  db: PrismaClient | Prisma.TransactionClient,
+  hospitalId: string,
+  rows: StockResetTarget[],
+  updatedAt: Date,
+): Promise<void> {
+  if (rows.length === 0) return;
+  const ids = rows.map((r) => r.resourceTypeId);
+  await db.$executeRaw`
+    UPDATE "HospitalResource" hr
+    SET "total" = GREATEST(h.total, h.held),
+        "available" = GREATEST(0, h.available - h.held),
+        "isAvailable" = CASE WHEN h.is_status THEN h.is_available ELSE GREATEST(0, h.available - h.held) > 0 END,
+        "updatedAt" = ${updatedAt}, "version" = hr."version" + 1
+    FROM (
+      SELECT v.*, COALESCE((
+        SELECT SUM(r."quantity") FROM "Reservation" r
+        WHERE r."hospitalResourceId" = x.id AND r."status" IN ('HELD', 'ARRIVED')
+      ), 0)::int AS held
+      FROM unnest(${ids}::text[], ${rows.map((r) => r.total)}::int[], ${rows.map((r) => r.available)}::int[], ${rows.map((r) => r.isAvailable)}::boolean[], ${rows.map((r) => r.isStatus)}::boolean[])
+        AS v(rt_id, total, available, is_available, is_status)
+      JOIN "HospitalResource" x ON x."hospitalId" = ${hospitalId} AND x."resourceTypeId" = v.rt_id
+    ) h
+    WHERE hr."hospitalId" = ${hospitalId} AND hr."resourceTypeId" = h.rt_id`;
+}
+
+/**
+ * Hold-aware reset for all non-archived live demo hospitals (`isDemo: true`).
+ * Seeded hospitals restore their seed profile targets (including intentional stale offset);
+ * any custom demo hospital restores each countable resource's `available` to `total - held`.
+ */
+export async function resetDemoHospitalsStock(
+  db: PrismaClient | Prisma.TransactionClient,
+  now: Date = new Date(),
+): Promise<{ refreshed: number; hospitalIds: string[] }> {
+  const [types, demoHospitals] = await Promise.all([
+    db.resourceType.findMany({ select: { id: true, code: true, kind: true } }),
+    db.hospital.findMany({
+      where: { isDemo: true, liveDataEnabled: true, archivedAt: null },
+      select: {
+        id: true,
+        slug: true,
+        resources: {
+          select: {
+            resourceTypeId: true,
+            total: true,
+            isAvailable: true,
+            resourceType: { select: { kind: true } },
+          },
+        },
+      },
+    }),
+  ]);
+  const seedBySlug = new Map(HOSPITALS.map((h) => [h.slug, h]));
+
+  for (const h of demoHospitals) {
+    const seed = seedBySlug.get(h.slug);
+    if (seed) {
+      const updatedAt = new Date(now.getTime() - (seed.stale ? STALE_MS : 0));
+      const rows = buildSeedStockTargets(seed, types);
+      await resetHospitalStockRows(db, h.id, rows, updatedAt);
+    } else {
+      const rows: StockResetTarget[] = h.resources.map((r) => ({
+        resourceTypeId: r.resourceTypeId,
+        total: r.total,
+        available: r.resourceType.kind === "STATUS" ? 0 : r.total,
+        isAvailable: r.resourceType.kind === "STATUS" ? r.isAvailable : r.total > 0,
+        isStatus: r.resourceType.kind === "STATUS",
+      }));
+      await resetHospitalStockRows(db, h.id, rows, now);
+    }
+  }
+
+  return { refreshed: demoHospitals.length, hospitalIds: demoHospitals.map((h) => h.id) };
+}
 
 export async function runSeed(db: PrismaClient, opts: SeedOptions): Promise<SeedSummary> {
   const now = opts.now ?? new Date();
@@ -85,43 +194,14 @@ export async function runSeed(db: PrismaClient, opts: SeedOptions): Promise<Seed
     hospitalIds.set(h.slug, row.id);
     if (!h.live) continue;
 
-    const counts = profileCounts(h.profile);
-    const statusOn = new Set(profileStatusOn(h.profile));
-    for (const code of h.statusOff ?? []) statusOn.delete(code);
     const updatedAt = new Date(now.getTime() - (h.stale ? STALE_MS : 0));
-
-    const rows = types.map((t) => {
-      if (t.kind === "STATUS") {
-        return { resourceTypeId: t.id, total: 0, available: 0, isAvailable: statusOn.has(t.code), isStatus: true };
-      }
-      const override = h.stock?.[t.code];
-      const total = override ? override[0] : (counts[t.code] ?? 0);
-      const available = override ? override[1] : Math.ceil(total * 0.6);
-      return { resourceTypeId: t.id, total, available, isAvailable: available > 0, isStatus: false };
-    });
+    const rows = buildSeedStockTargets(h, types);
     await db.hospitalResource.createMany({
       data: rows.map((r) => ({ hospitalId: row.id, resourceTypeId: r.resourceTypeId, total: r.total, available: r.available, isAvailable: r.isAvailable, updatedAt })),
       skipDuplicates: true,
     });
     if (opts.resetStock) {
-      // One round trip per hospital (a remote DB makes per-row updates slow).
-      const ids = rows.map((r) => r.resourceTypeId);
-      await db.$executeRaw`
-        UPDATE "HospitalResource" hr
-        SET "total" = GREATEST(h.total, h.held),
-            "available" = GREATEST(0, h.available - h.held),
-            "isAvailable" = CASE WHEN h.is_status THEN h.is_available ELSE GREATEST(0, h.available - h.held) > 0 END,
-            "updatedAt" = ${updatedAt}, "version" = hr."version" + 1
-        FROM (
-          SELECT v.*, COALESCE((
-            SELECT SUM(r."quantity") FROM "Reservation" r
-            WHERE r."hospitalResourceId" = x.id AND r."status" IN ('HELD', 'ARRIVED')
-          ), 0)::int AS held
-          FROM unnest(${ids}::text[], ${rows.map((r) => r.total)}::int[], ${rows.map((r) => r.available)}::int[], ${rows.map((r) => r.isAvailable)}::boolean[], ${rows.map((r) => r.isStatus)}::boolean[])
-            AS v(rt_id, total, available, is_available, is_status)
-          JOIN "HospitalResource" x ON x."hospitalId" = ${row.id} AND x."resourceTypeId" = v.rt_id
-        ) h
-        WHERE hr."hospitalId" = ${row.id} AND hr."resourceTypeId" = h.rt_id`;
+      await resetHospitalStockRows(db, row.id, rows, updatedAt);
     }
   }
 

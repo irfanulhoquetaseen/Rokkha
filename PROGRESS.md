@@ -1,7 +1,8 @@
 # PROGRESS
 
 ## Current phase
-P1–P5: **done** and verified live (25 Nov 2026, deploy `ceaacc7`). Report: `docs/reports/P4-P5.md`. Next: **P6**.
+P1–P5: **done** and verified live (25 Nov 2026, deploy `ceaacc7`). Report: `docs/reports/P4-P5.md`.
+P6 core (Admin area + CSV import): **done** on branch `admin` (pending review/merge + `prisma migrate deploy` on live). Report: `docs/reports/P6-admin.md`. Next: remaining P6 (PWA / Lighthouse / condition & first-aid admin editors if prioritized) → **P7**.
 
 ## Done
 - **P0** Foundation: Next.js 16.4.6 + custom `server.ts` (Next + Socket.io 4.8.4 on one port), Prisma 7.10.1 + Postgres 18 on Railway Singapore, `/api/health`, live deploy. Auto-deploy on push to `main` proven (GitHub trigger on the `web` service).
@@ -20,9 +21,17 @@ P1–P5: **done** and verified live (25 Nov 2026, deploy `ceaacc7`). Report: `do
 - **P4** Reservation engine (A05): state machine (CAS transitions), `reserve()` in one transaction (advisory lock → per-user limits → conditional decrement → reservation + event + audit; SOLD_OUT with 3 alternatives), Idempotency-Key, clamped stock return, expiry sweeper (30 s + boot + lazy), FK `Reservation.userId`, hold-aware `SEED_RESET_STOCK`, `npm run demo:race`.
 - **P5 Task 2/5** Client socket core (version gate, coalescer, reconnect banner, refetch on (re)connect and on `online`); multi-context acceptance E2E (`realtime-acceptance.spec.ts`).
 - **P5 final wave** (`ceaacc7`): no false "changed elsewhere" hint from a staff member's own save echo; signed-out Finder card with only sold-out rows says "Nothing left to hold here"; room cap re-checked right before `socket.join`. Task 6 (presence) skipped.
+- **P6 Admin area (`/admin`, role `ADMIN` only, branch `admin`)**:
+  - Auth & routing: `src/proxy.ts` (`adminGate`), `src/server/admin/page-guard.ts` (`requireAdminPage`), and all `/admin` pages + `/api/admin/*` routes enforce `requireRole(user, "ADMIN")` (signed-out → 307 `/login?next=...`, signed-in non-admin → real 404 + `AUTHZ_DENIED` audit). Bilingual `src/lib/i18n/admin.ts`, `SiteHeader` Admin link, mobile-first accessible UI (≥ 44 px touch targets, `htmlFor` labels), DEMO DATA banner intact.
+  - Hospitals CRUD & archive (`src/server/admin/hospitals.ts`, `/api/admin/hospitals/**`, `/admin`): search (name, district), filters (type, liveDataEnabled, archived), sort (nameEn, district, updatedAt), pagination; Zod-validated create/edit with Bangladesh bounds (`lat 20.5–26.7`, `lng 88.0–92.7`); transactional initial `HospitalResource` creation; hard-delete if 0 reservations, archive (`archivedAt` in `20261125030000_p6_hospital_archived`) otherwise; `HospitalResource` `FOR UPDATE` row lock before counting holds + post-`takeStock` `archivedAt` re-check in `reserve()` prevent archive-vs-reserve races; active `HELD`/`ARRIVED` reservations block archive with 409 `CONFLICT` (after lazy expiry of overdue holds); archived hospitals excluded from Finder, directory, `/hospitals/<slug>` (real 404 via `src/proxy.ts`), alternatives, and `reserve()`; `AuditLog` (`old → new`) in the same transaction + post-commit `publishStock` finder refresh.
+  - Optional CSV hospital import (`src/lib/csv.ts`, `src/server/admin/csv-import.ts`, `/api/admin/hospitals/import`): RFC-4180 parser, per-row Zod validation, in-file duplicate slug detection, idempotent re-import by `slug`, per-row status/error report.
+  - Users (`src/server/admin/users.ts`, `/api/admin/users`, `/admin/users`): search by phone/name, filter by role, pagination; `CITIZEN ↔ HOSPITAL_STAFF` role change (staff bound to one active hospital; self-change and demoting other admins blocked with 409 `CONFLICT`; `passwordHash` excluded from responses; all DB sessions deleted inside tx + live sockets disconnected after commit; audited).
+  - Audit log viewer (`src/server/admin/audit-viewer.ts`, `/api/admin/audit`, `/admin/audit`): newest-first read-only table with batch actor lookup, action/date-range filters, concise summaries, pagination.
+  - SQL analytics (`src/server/admin/analytics.ts`, `/api/admin/analytics`, `/admin/analytics`): pure SQL aggregation for reservations/condition/day (7d), sold-out events per resource & district, hold outcome rates (`ARRIVED`/`EXPIRED`/`CANCELLED`/`REJECTED`), average `HELD → ARRIVED` minutes, stale live hospitals (> 30 min); tables + plain SVG bars + clear empty states.
+  - Demo stock refresh (`src/server/admin/demo-refresh.ts`, `/api/admin/demo-refresh`): in-page confirmation importing `resetDemoHospitalsStock` / `resetHospitalStockRows` from `src/server/seed/run-seed.ts` (no duplicated logic, hold-aware, `isDemo: true` & unarchived only, audited, live publish).
 
 ## Next
-- **P6** admin/audit/analytics/i18n/PWA. **P7** hardening.
+- Review & merge `admin` into `main` (runs `prisma migrate deploy` for `20261125030000_p6_hospital_archived`), remaining P6 items (PWA offline first-aid, condition/first-aid CRUD if needed), **P7** hardening & live Lighthouse.
 
 ## Known issues
 - Bangla first-aid text needs a native-speaker proofread (content is sourced and reviewed for fidelity, translation not proofread by a native speaker).
@@ -38,6 +47,9 @@ P1–P5: **done** and verified live (25 Nov 2026, deploy `ceaacc7`). Report: `do
 - Directory section lists only directory-only hospitals and is unpaginated (5 rows); full "browse all hospitals" directory is tracked for P6.
 - Live Finder: the sold-out row kept on a card is the patient's preferred blood row; if a citizen loses the race for a *different* compatible donor group, a refresh may re-pick the blood row and unmount that button (beds/vaccines etc. are unaffected).
 - Finder ranks all live hospitals in memory per request (fine at 20 live hospitals; document scale assumption in P7).
+- Migration `20261125030000_p6_hospital_archived` has been applied to `jibonsetu_test` (`DATABASE_URL_TEST`) only and is **not yet applied** to the live production DB (`railway`).
+- `src/server/reservations/reserve.ts`, `src/server/reservations/alternatives.ts`, and `src/server/reservations/queries.ts` received minimal surgical edits (`archivedAt` checks/filters) as required by Prompt #4 §1a ("Archived hospitals ... cannot be reserved") and the follow-up ensuring `/hospitals/<slug>` returns 404 when archived.
+- Prompt #4 scope covered admin hospitals (+ CSV import), users, audit viewer, SQL analytics, and demo stock refresh; Condition/FirstAidGuide admin editors, full paginated hospital directory, and PWA offline service worker remain for follow-up.
 
 ## Must-do in P4
 All done in P4 (clamped returns, hold-aware seed reset, FK, sweeper tolerates unmigrated DB, inverse-adjust restore).
@@ -58,3 +70,7 @@ All done in P4 (clamped returns, hold-aware seed reset, FK, sweeper tolerates un
 - 24 Nov: First-aid sources: IFRC International First Aid Guidelines 2020 (page-anchored) for stroke, heart attack, trauma, breathing, pregnancy; WHO fact sheets for dengue, snakebite, rabies. Trauma positioning keyed to *suspected* spinal injury.
 - 24 Nov: `SEED_RESET_STOCK` is opt-in; default re-seed never touches stock.
 - 24 Nov: Staff queue strings live in `src/lib/i18n/staff.ts` (Task 8 brief) rather than `reservations.ts`; status labels reuse `reservations.status_*`.
+- 25 Nov: `Hospital.archivedAt` (`DateTime?`, indexed) added via `20261125030000_p6_hospital_archived`; hard delete removes `SoldOutEvent` + `HospitalResource` rows when `reservationCount === 0`, otherwise archives after lazily expiring overdue holds.
+- 25 Nov: Hold outcome analytics group `COMPLETED` reservations into `ARRIVED` (since `COMPLETED` only transitions from `ARRIVED`) and compute rates over resolved holds (`ARRIVED`, `EXPIRED`, `CANCELLED`, `REJECTED`).
+- 25 Nov: Extracted `resetHospitalStockRows` + `resetDemoHospitalsStock` in `src/server/seed/run-seed.ts` so Admin "Refresh demo stock" imports and reuses the exact `SEED_RESET_STOCK` hold-aware logic without duplication.
+- 25 Nov: Admin pages fetch initial SSR state through `requireAdminPage` and pass serialized props into client components for instant first paint and clean React effect handling.
