@@ -123,4 +123,15 @@ export const admin = {
   next: { bn: "পরের", en: "Next" },
   page: { bn: "পৃষ্ঠা", en: "Page" },
   of: { bn: "এর", en: "of" },
+
+  // CSV Import
+  importCsv: { bn: "CSV ইমপোর্ট", en: "Import CSV" },
+  importCsvHint: {
+    bn: "প্রয়োজনীয় কলাম: slug, nameBn, nameEn, type (GOVT/PRIVATE), freeService, liveDataEnabled, phone, division, district, area, address, lat, lng (ঐচ্ছিক: isDemo)",
+    en: "Required columns: slug, nameBn, nameEn, type (GOVT/PRIVATE), freeService, liveDataEnabled, phone, division, district, area, address, lat, lng (optional: isDemo)",
+  },
+  importCsvFile: { bn: "CSV ফাইল বেছে নিন", en: "Choose CSV file" },
+  importCsvPaste: { bn: "অথবা এখানে CSV পেস্ট করুন", en: "Or paste CSV here" },
+  importCsvRun: { bn: "ইমপোর্ট চালান", en: "Run import" },
+  importing: { bn: "ইমপোর্ট হচ্ছে…", en: "Importing…" },
 } as const satisfies Record<string, Bilingual>;

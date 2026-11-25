@@ -38,6 +38,7 @@ export function HospitalList({
   const [sort, setSort] = useState("nameEn");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const seq = useRef(0);
@@ -83,14 +84,24 @@ export function HospitalList({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-bold">{admin.hospitals[lang]}</h2>
-        <button
-          type="button"
-          data-testid="create-hospital-btn"
-          onClick={() => { setEditingId(null); setShowCreate(true); }}
-          className={`${btnCls} bg-purple-700 px-4 text-white hover:bg-purple-800`}
-        >
-          {admin.createHospital[lang]}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="import-csv-btn"
+            onClick={() => { setShowCreate(false); setEditingId(null); setShowImport((v) => !v); }}
+            className={`${btnCls} border border-zinc-300 px-4 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800`}
+          >
+            {admin.importCsv[lang]}
+          </button>
+          <button
+            type="button"
+            data-testid="create-hospital-btn"
+            onClick={() => { setShowImport(false); setEditingId(null); setShowCreate(true); }}
+            className={`${btnCls} bg-purple-700 px-4 text-white hover:bg-purple-800`}
+          >
+            {admin.createHospital[lang]}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -155,6 +166,14 @@ export function HospitalList({
         >
           {message.text}
         </div>
+      )}
+
+      {showImport && (
+        <CsvImportPanel
+          lang={lang}
+          onClose={() => setShowImport(false)}
+          onImported={() => { void fetchList(); }}
+        />
       )}
 
       {showCreate && (
@@ -628,6 +647,93 @@ function HospitalForm({
         </button>
         <button type="button" onClick={onClose} className={`${btnCls} border border-zinc-300 px-4 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800`}>
           {admin.cancel[lang]}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function CsvImportPanel({ lang, onClose, onImported }: { lang: Lang; onClose: () => void; onImported: () => void }) {
+  const [csv, setCsv] = useState("");
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<{
+    summary: { total: number; created: number; updated: number; unchanged: number; errors: number };
+    rows: { rowNumber: number; slug: string; status: string; errors?: string[] }[];
+  } | null>(null);
+
+  const runImport = async (e: FormEvent) => {
+    e.preventDefault();
+    if (running || !csv.trim()) return;
+    setRunning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/hospitals/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReport(data);
+        if (data.summary.created + data.summary.updated > 0) onImported();
+      } else {
+        const err = (await res.json().catch(() => null)) as Partial<ErrorBody> | null;
+        setError(err?.error?.message?.[lang] || (lang === "bn" ? "ইমপোর্ট ব্যর্থ হয়েছে" : "Import failed"));
+      }
+    } catch {
+      setError(lang === "bn" ? "সংযোগে সমস্যা" : "Connection error");
+    }
+    setRunning(false);
+  };
+
+  return (
+    <form onSubmit={runImport} className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold">{admin.importCsv[lang]}</h3>
+        <button type="button" onClick={onClose} className={`${btnCls} border border-zinc-300 dark:border-zinc-700`}>{admin.cancel[lang]}</button>
+      </div>
+      <p className="text-xs text-zinc-600 dark:text-zinc-400">{admin.importCsvHint[lang]}</p>
+      <div>
+        <label htmlFor="csv-file" className="mb-1 block text-sm font-medium">{admin.importCsvFile[lang]}</label>
+        <input
+          id="csv-file"
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            void f.text().then((t) => setCsv(t));
+          }}
+          className="block w-full text-sm"
+        />
+      </div>
+      <div>
+        <label htmlFor="csv-text" className="mb-1 block text-sm font-medium">{admin.importCsvPaste[lang]}</label>
+        <textarea
+          id="csv-text"
+          rows={4}
+          value={csv}
+          onChange={(e) => setCsv(e.target.value)}
+          className="w-full rounded-md border border-zinc-300 bg-transparent p-2 font-mono text-xs dark:border-zinc-700"
+        />
+      </div>
+      {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+      {report && (
+        <div role="status" className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-800">
+          <p className="font-semibold">
+            total: {report.summary.total} · created: {report.summary.created} · updated: {report.summary.updated} · unchanged: {report.summary.unchanged} · errors: {report.summary.errors}
+          </p>
+          {report.rows.filter((r) => r.status === "error").map((r) => (
+            <p key={r.rowNumber} className="mt-1 text-red-700 dark:text-red-300">
+              Row {r.rowNumber} ({r.slug || "?"}): {r.errors?.join("; ")}
+            </p>
+          ))}
+        </div>
+      )}
+      <div>
+        <button type="submit" disabled={running || !csv.trim()} className={`${btnCls} bg-purple-700 px-4 text-white hover:bg-purple-800`}>
+          {running ? admin.importing[lang] : admin.importCsvRun[lang]}
         </button>
       </div>
     </form>

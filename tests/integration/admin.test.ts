@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), connection: async () => {} }));
 
 import { DELETE as deleteHospitalApi, GET as getHospitalApi, PATCH as patchHospitalApi } from "@/app/api/admin/hospitals/[hospitalId]/route";
+import { POST as importHospitalsApi } from "@/app/api/admin/hospitals/import/route";
 import { GET as listHospitalsApi, POST as createHospitalApi } from "@/app/api/admin/hospitals/route";
 import { GET as listUsersApi, PATCH as patchUserApi } from "@/app/api/admin/users/route";
 import { GET as listAuditApi } from "@/app/api/admin/audit/route";
@@ -470,5 +471,41 @@ describe("admin demo stock refresh", () => {
     const log = await prisma.auditLog.findFirst({ where: { action: "ADMIN_CHANGE", entityType: "DemoStock" } });
     expect(log).not.toBeNull();
     expect(log!.actorUserId).toBe(admin.id);
+  });
+});
+
+describe("admin CSV hospital import", () => {
+  it("validates per row, detects duplicate slugs, supports idempotent re-import and updates, and reports errors per row", async () => {
+    const header = "slug,nameBn,nameEn,type,freeService,liveDataEnabled,phone,division,district,area,address,lat,lng,isDemo";
+    const row1 = 'csv-dhaka-1,সিএসভি ১,CSV Hospital 1,GOVT,true,true,01711110001,Dhaka,Dhaka,Dhanmondi,"Road 1, Dhaka",23.75,90.38,true';
+    const row2 = 'csv-raj-2,সিএসভি ২,CSV Hospital 2,PRIVATE,false,false,01711110002,Rajshahi,Rajshahi,Puthia,"Main Rd",24.36,88.84,false';
+    const dupRow1 = 'csv-dhaka-1,সিএসভি ডুপ,Dup CSV,GOVT,true,true,01711110001,Dhaka,Dhaka,Dhanmondi,"Road 1, Dhaka",23.75,90.38,true';
+    const badRow = 'bad-coord,সিএসভি ৩,Bad Lat,GOVT,true,true,01711110003,Dhaka,Dhaka,Mirpur,"Sec 10",55.0,90.38,false';
+
+    const r1 = await importHospitalsApi(
+      mutReq("POST", "/api/admin/hospitals/import", { csv: [header, row1, row2, dupRow1, badRow].join("\n") }, adminToken),
+      {},
+    );
+    expect(r1.status).toBe(200);
+    const j1 = await r1.json();
+    expect(j1.summary).toEqual({ total: 4, created: 2, updated: 0, unchanged: 0, errors: 2 });
+    expect(j1.rows.find((r: { rowNumber: number }) => r.rowNumber === 4).errors[0]).toContain("Duplicate slug");
+    expect(j1.rows.find((r: { rowNumber: number }) => r.rowNumber === 5).errors[0]).toContain("lat");
+
+    // Re-importing valid rows is idempotent (unchanged: 2)
+    const r2 = await importHospitalsApi(
+      mutReq("POST", "/api/admin/hospitals/import", { csv: [header, row1, row2].join("\n") }, adminToken),
+      {},
+    );
+    expect((await r2.json()).summary).toEqual({ total: 2, created: 0, updated: 0, unchanged: 2, errors: 0 });
+
+    // Modifying row1 updates it and leaves row2 unchanged
+    const row1Updated = 'csv-dhaka-1,সিএসভি ১,CSV Hospital 1 Updated,GOVT,true,true,01711110001,Dhaka,Dhaka,Dhanmondi,"Road 1, Dhaka",23.75,90.38,true';
+    const r3 = await importHospitalsApi(
+      mutReq("POST", "/api/admin/hospitals/import", { csv: [header, row1Updated, row2].join("\n") }, adminToken),
+      {},
+    );
+    expect((await r3.json()).summary).toEqual({ total: 2, created: 0, updated: 1, unchanged: 1, errors: 0 });
+    expect((await prisma.hospital.findUniqueOrThrow({ where: { slug: "csv-dhaka-1" } })).nameEn).toBe("CSV Hospital 1 Updated");
   });
 });
