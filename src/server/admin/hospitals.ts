@@ -260,6 +260,10 @@ export async function deleteOrArchiveHospital(user: SessionUser | null, hospital
   await expireOverdue(new Date(), { hospitalId: parsedId.data });
 
   const result = await prisma.$transaction(async (tx) => {
+    // Lock this hospital's HospitalResource rows BEFORE counting reservations/active holds so a
+    // concurrent reserve() (which updates HospitalResource) cannot commit a HELD row behind our back.
+    await tx.$queryRaw`SELECT "id" FROM "HospitalResource" WHERE "hospitalId" = ${parsedId.data} ORDER BY "id" FOR UPDATE`;
+
     const hospital = await tx.hospital.findUnique({ where: { id: parsedId.data } });
     if (!hospital) throw new AppError("NOT_FOUND");
 
