@@ -14,10 +14,10 @@ Branch: `admin` (not merged into `main`).
    - Create (`POST /api/admin/hospitals`): Zod validation incl. Bangladesh coordinates (`lat 20.5–26.7`, `lng 88.0–92.7`), transactional creation of `Hospital` + picked `HospitalResource` rows (`COUNTABLE` totals/available and `STATUS` availability) + `AuditLog`, followed by post-commit `publishStock` finder refresh.
    - Edit (`PATCH /api/admin/hospitals/[hospitalId]`): partial Zod-validated updates (blocks archived hospitals), full old → new `AuditLog` in the same transaction, post-commit `publishStock`.
    - Delete vs Archive (`DELETE /api/admin/hospitals/[hospitalId]` + migration `20261125030000_p6_hospital_archived`):
-     - Lazily expires overdue holds on that hospital first.
+     - Lazily expires overdue holds on that hospital first, then inside the transaction locks the hospital's `HospitalResource` rows (`SELECT "id" FROM "HospitalResource" WHERE "hospitalId" = $1 ORDER BY "id" FOR UPDATE`) before counting reservations/active holds. Paired with a post-`takeStock` `archivedAt` re-check in `reserve()`, an archive and a concurrent reservation can never leave a hospital both archived and holding an active `HELD` reservation.
      - Hard-deletes if the hospital has never had a reservation (cleaning up `SoldOutEvent` and `HospitalResource` rows in the same tx).
      - Otherwise blocks archiving with `409 CONFLICT` if active `HELD` / `ARRIVED` reservations exist, or sets `archivedAt` + writes `AuditLog` + publishes finder refresh.
-     - Archived hospitals are excluded from `searchHospitals`, `listDirectory`, `firstLiveHospitalId`, `findAlternatives`, and `reserve()`.
+     - Archived hospitals are excluded from `searchHospitals`, `listDirectory`, `firstLiveHospitalId`, `findAlternatives`, `reserve()`, and `/hospitals/<slug>` (real HTTP `404` via `src/proxy.ts` + `hospitalExists` / `getHospitalStock` / `getHospitalName`).
    - Optional CSV import (`POST /api/admin/hospitals/import`, `src/lib/csv.ts`, `src/server/admin/csv-import.ts`): RFC-4180 CSV parser, per-row Zod validation, in-file duplicate slug detection, idempotent re-import by `slug`, and a per-row status/error report.
 
 3. **Users (`1b`)**
@@ -51,11 +51,10 @@ Branch: `admin` (not merged into `main`).
 | `npm run typecheck` | `next typegen && tsc --noEmit` | ✅ clean |
 | `npm run lint` | `eslint .` | ✅ clean (0 errors, 0 warnings) |
 | `npm run build` | `prisma generate && next build && npm run build:server` | ✅ clean |
-| `npm test` (Vitest) | Unit (17 files, 113 tests) + Integration against `jibonsetu_test` (17 files, 197 tests, incl. 9 new admin/CSV tests) | ✅ **310 / 310 passed** (34 files) |
-| `tests/e2e/admin.spec.ts` | Mobile 360×800 + Desktop 1440×900 (guard 307/404, login, create w/ resources, Finder visibility, edit, hold blocks archive, cancel → archive → vanish from Finder, subpages, demo refresh confirmation) | ✅ **6 / 6 passed** |
-| `npm run test:e2e` (`--workers=4`) | Full Playwright suite (120 tests across mobile + desktop) | **119 / 120 passed**; 1 transient `ECONNRESET` on `[mobile] realtime-acceptance:352` which passed on immediate rerun (`1 / 1`, and `14 / 14` on `realtime-finder + realtime-acceptance`) |
+| `npm test` (Vitest) | Unit (17 files, 113 tests) + Integration against `jibonsetu_test` (17 files, 198 tests, incl. 10 new admin/CSV/race/404 tests) | ✅ **311 / 311 passed** (34 files) |
+| `tests/e2e/admin.spec.ts` + `realtime-finder.spec.ts` | Mobile 360×800 + Desktop 1440×900 (guard 307/404, login, create w/ resources, Finder visibility, edit, hold blocks archive, cancel → archive → vanish from Finder & `/hospitals/<slug>` 404, subpages, demo refresh confirmation, live Finder) | ✅ **12 / 12 passed** |
+| `npm run test:e2e` (`--workers=4`, pre-follow-up full run) | Full Playwright suite (120 tests across mobile + desktop) | **119 / 120 passed**; 1 transient `ECONNRESET` on `[mobile] realtime-acceptance:352` which passed on immediate rerun (`1 / 1`, and `14 / 14` on `realtime-finder + realtime-acceptance`) |
 
 ## Not done / deferred
 - Admin editors for `Condition`, `ConditionRequirement`, and `FirstAidGuide` (beyond Prompt #4 scope; tracked for follow-up).
-- Public `/hospitals/<slug>` page still resolves archived hospital slugs directly if visited by URL (only `src/server/reservations/reserve.ts` and `alternatives.ts` were touched in `src/server/reservations/**`, keeping unrequested edits minimal).
 - Full paginated directory browse, PWA manifest/service worker, and live-URL Lighthouse check remain for P6 follow-up / P7.
