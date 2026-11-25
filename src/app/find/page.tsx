@@ -20,7 +20,7 @@ import { getLang } from "@/server/i18n/lang";
 import { parseFinderParams, RADIUS_OPTIONS, type FinderParams } from "@/server/finder/params";
 import { getFirstAidGuide, listConditions, searchHospitals, type FinderResult } from "@/server/finder/search";
 
-export const metadata: Metadata = { title: "Find a hospital — JibonSetu" };
+export const metadata: Metadata = { title: "Find a hospital — Rokkha" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -55,7 +55,7 @@ async function FinderBody({ searchParams }: { searchParams: SearchParams }) {
   const noticeList = allNotices.length > 0 && (
     <ul className="flex flex-col gap-2">
       {allNotices.map((n, i) => (
-        <li key={i} data-testid="notice" role="status" className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">
+        <li key={i} data-testid="notice" role="status" className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3.5 py-2.5 text-sm font-medium text-[var(--warning-text)]">
           ⚠️ {n[lang]}
         </li>
       ))}
@@ -166,12 +166,12 @@ function Results({
 }
 
 const pageLink =
-  "inline-flex min-h-11 items-center rounded-lg border border-zinc-300 px-3 font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800";
+  "inline-flex min-h-11 items-center rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 font-semibold text-[var(--text-primary)] shadow-2xs hover:bg-[var(--bg-subtle)]";
 
 function EmptyState({ params, lang }: { params: FinderParams; lang: Lang }) {
   const wider = params.radius !== undefined ? RADIUS_OPTIONS.find((r) => r > params.radius!) : undefined;
   return (
-    <section data-testid="empty-state" className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section data-testid="empty-state" className="flex flex-col gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs">
       <p className="font-semibold">{finder.emptyTitle[lang]}</p>
       <div className="flex flex-wrap gap-2">
         {params.radius !== undefined && (

@@ -13,7 +13,7 @@ This step-by-step script verifies **M01–M08**, **A05**, and **A01** on the dep
 | Step | Action | Expected Result | Rubric |
 |---|---|---|---|
 | 1a | Open `https://web-production-3fb89dc8.up.railway.app/api/health` and `/status` | `/api/health` returns `200` with `{"status":"ok","db":"up"}`; `/status` shows API up and Socket.io **connected**. | M08 |
-| 1b | Verify the amber banner at the top of the page; click the **`English`** button in the header (optional if testing in English) | Permanent top banner reads `DEMO DATA — not real hospital availability`; UI switches cleanly between Bangla (default) and English. | M07 |
+| 1b | Verify the **`ডেমো` / `Demo`** badge next to the Rokkha logo (tap/hover it), toggle the theme icon, and click **`English`** in the header | Header pill opens its `"Hospitals are fictional; not real availability"` popover; light default toggles cleanly to dark; UI switches between Bangla (default) and English. | M07 |
 | 1c | Go to `/login`, log in as Admin (`01700000001`), open **`Admin` (`/admin`)**, click **`Refresh demo stock`**, and confirm **`Yes`** | Notice confirms all active demo hospitals reset in Postgres (while preserving any active reservations). Ensures fresh timestamps (`< 30 min`) and `ICU_BED = 1/6` at Dhanmondi Care General before testing. Log out afterwards. | M01, M02, M06 |
 
 ---

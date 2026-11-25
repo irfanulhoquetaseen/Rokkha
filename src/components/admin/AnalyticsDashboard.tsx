@@ -20,10 +20,10 @@ export type AnalyticsData = {
 };
 
 const OUTCOME_COLORS: Record<Outcome["status"], string> = {
-  ARRIVED: "#16a34a",
-  EXPIRED: "#d97706",
-  CANCELLED: "#71717a",
-  REJECTED: "#dc2626",
+  ARRIVED: "#006A4E",
+  EXPIRED: "#D97706",
+  CANCELLED: "#64748B",
+  REJECTED: "#C8102E",
 };
 
 function SvgBar({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
@@ -50,9 +50,9 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
         {initial.perDay.length === 0 ? (
           <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">{admin.noData[lang]}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 dark:border-zinc-700">
+              <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
                 <tr>
                   <th className="px-3 py-2">{admin.date[lang]}</th>
                   <th className="px-3 py-2">{admin.condition[lang]}</th>
@@ -64,12 +64,12 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
                 {initial.perDay.map((r, i) => {
                   const condLabel = (lang === "bn" ? r.conditionBn : r.conditionEn) ?? admin.unknownCondition[lang];
                   return (
-                    <tr key={`${r.day}-${r.conditionCode ?? i}`} className="border-b border-zinc-100 dark:border-zinc-800">
+                    <tr key={`${r.day}-${r.conditionCode ?? i}`} className="border-b border-[var(--border-default)]">
                       <td className="whitespace-nowrap px-3 py-2">{r.day}</td>
                       <td className="px-3 py-2">{condLabel}</td>
                       <td className="px-3 py-2 tabular-nums">{r.count}</td>
                       <td className="px-3 py-2">
-                        <SvgBar value={r.count} max={maxPerDay} color="#7e22ce" label={`${condLabel}: ${r.count}`} />
+                        <SvgBar value={r.count} max={maxPerDay} color="#006A4E" label={`${condLabel}: ${r.count}`} />
                       </td>
                     </tr>
                   );
@@ -84,11 +84,11 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
       <section aria-labelledby="an-soldout">
         <h3 id="an-soldout" className="mb-2 text-lg font-semibold">{admin.soldOutEvents[lang]}</h3>
         {initial.soldOut.length === 0 ? (
-          <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">{admin.noData[lang]}</p>
+          <p className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-muted)]">{admin.noData[lang]}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 dark:border-zinc-700">
+              <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
                 <tr>
                   <th className="px-3 py-2">{admin.resourceType[lang]}</th>
                   <th className="px-3 py-2">{admin.district[lang]}</th>
@@ -100,12 +100,12 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
                 {initial.soldOut.map((r) => {
                   const resLabel = lang === "bn" ? r.resourceBn : r.resourceEn;
                   return (
-                    <tr key={`${r.code}-${r.district}`} className="border-b border-zinc-100 dark:border-zinc-800">
+                    <tr key={`${r.code}-${r.district}`} className="border-b border-[var(--border-default)]">
                       <td className="px-3 py-2">{resLabel}</td>
                       <td className="px-3 py-2">{r.district}</td>
                       <td className="px-3 py-2 tabular-nums">{r.count}</td>
                       <td className="px-3 py-2">
-                        <SvgBar value={r.count} max={maxSoldOut} color="#dc2626" label={`${resLabel} (${r.district}): ${r.count}`} />
+                        <SvgBar value={r.count} max={maxSoldOut} color="#C8102E" label={`${resLabel} (${r.district}): ${r.count}`} />
                       </td>
                     </tr>
                   );
@@ -120,14 +120,14 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
       <section aria-labelledby="an-outcomes">
         <h3 id="an-outcomes" className="mb-2 text-lg font-semibold">{admin.holdOutcomes[lang]}</h3>
         {initial.totalResolved === 0 ? (
-          <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">{admin.noData[lang]}</p>
+          <p className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-muted)]">{admin.noData[lang]}</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {initial.outcomes.map((o) => {
               const pct = Math.round(o.rate * 100);
               const label = reservations[`status_${o.status}`][lang];
               return (
-                <div key={o.status} className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+                <div key={o.status} className="flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-sm font-semibold">{label}</span>
                     <span className="text-xs text-zinc-500 tabular-nums">{pct}%</span>

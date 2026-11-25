@@ -8,7 +8,7 @@ import { finderParamsSchema } from "@/server/finder/params";
 import { getFirstAidGuide } from "@/server/finder/search";
 import { getLang } from "@/server/i18n/lang";
 
-export const metadata: Metadata = { title: "First aid — JibonSetu" };
+export const metadata: Metadata = { title: "First aid — Rokkha" };
 
 type Params = Promise<{ condition: string }>;
 
@@ -37,7 +37,7 @@ async function FirstAidBody({ params }: { params: Params }) {
       <FirstAidCard guide={guide} lang={lang} variant="full" />
       <Link
         href={`/find?condition=${encodeURIComponent(guide.condition.code)}`}
-        className="inline-flex min-h-12 items-center justify-center rounded-lg bg-zinc-900 px-4 font-semibold text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
+        className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[var(--brand-primary)] px-5 font-semibold text-white shadow-xs transition-colors hover:bg-[var(--brand-primary-hover)]"
       >
         {finder.findHospitals[lang]} →
       </Link>

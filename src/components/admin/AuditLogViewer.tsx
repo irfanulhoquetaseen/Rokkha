@@ -14,9 +14,9 @@ export type AuditRow = {
 export type AuditPageData = { items: AuditRow[]; total: number; page: number; pageSize: number };
 
 const inputCls =
-  "min-h-11 rounded-md border border-zinc-300 bg-transparent px-3 text-sm outline-none focus:border-purple-700 focus:ring-2 focus:ring-purple-700/30 dark:border-zinc-700 dark:bg-zinc-900";
+  "min-h-11 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/25";
 const btnCls =
-  "inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 function summarize(row: AuditRow): string {
   const b = (row.before && typeof row.before === "object" ? row.before : null) as Record<string, unknown> | null;
@@ -117,9 +117,9 @@ export function AuditLogViewer({
       {data.items.length === 0 ? (
         <p className="py-8 text-center text-sm text-zinc-500">{admin.noAuditLogs[lang]}</p>
       ) : (
-        <div className={`overflow-x-auto transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div className={`overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs transition-opacity ${loading ? "opacity-60" : ""}`}>
           <table className="w-full text-left text-sm" data-testid="admin-audit-table">
-            <thead className="border-b border-zinc-200 dark:border-zinc-700">
+            <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
               <tr>
                 <th className="px-3 py-2 font-medium">{admin.time[lang]}</th>
                 <th className="px-3 py-2 font-medium">{admin.actor[lang]}</th>

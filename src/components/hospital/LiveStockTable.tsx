@@ -123,7 +123,7 @@ export function LiveStockTable({ hospitalId, initial, lang }: { hospitalId: stri
               data-testid="stock-row"
               data-code={r.code}
               data-version={r.version}
-              className={`border-b border-zinc-200 motion-safe:transition-colors motion-safe:duration-700 dark:border-zinc-800 ${flash.has(r.id) ? "motion-safe:bg-yellow-100 motion-safe:dark:bg-yellow-900/40" : ""}`}
+              className={`border-b border-[var(--border-default)] motion-safe:transition-colors motion-safe:duration-700 ${flash.has(r.id) ? "motion-safe:bg-[var(--warning-bg)]" : ""}`}
             >
               <th scope="row" className="py-2 pr-2 text-left font-normal break-words">
                 {lang === "bn" ? r.nameBn : r.nameEn}
@@ -131,21 +131,21 @@ export function LiveStockTable({ hospitalId, initial, lang }: { hospitalId: stri
               <td className="py-2 pr-2 text-right whitespace-nowrap">
                 {r.kind === "COUNTABLE" ? (
                   <>
-                    <span data-testid="stock-available" className={`font-bold ${r.available === 0 ? "text-red-800 dark:text-red-300" : ""}`}>
+                    <span data-testid="stock-available" className={`font-bold tabular-nums ${r.available === 0 ? "text-[var(--emergency-text)]" : ""}`}>
                       {fmtNum(r.available, lang)}
                     </span>
-                    <span className="text-zinc-600 dark:text-zinc-400"> / {fmtNum(r.total, lang)}</span>
+                    <span className="text-[var(--text-muted)] tabular-nums"> / {fmtNum(r.total, lang)}</span>
                   </>
                 ) : (
                   <span
                     data-testid="stock-status"
-                    className={`rounded px-2 py-0.5 text-xs font-bold ${r.isAvailable ? "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-100" : "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"}`}
+                    className={`rounded-md px-2 py-0.5 text-xs font-bold ${r.isAvailable ? "bg-[var(--bg-brand-tint)] text-[var(--brand-primary-text)]" : "bg-[var(--bg-subtle)] text-[var(--text-muted)]"}`}
                   >
                     {r.isAvailable ? realtime.statusOn[lang] : realtime.statusOff[lang]}
                   </span>
                 )}
               </td>
-              <td className="py-2 text-right whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+              <td className="py-2 text-right whitespace-nowrap text-[var(--text-muted)] tabular-nums">
                 {fmtClock(new Date(r.updatedAt), lang)}
               </td>
             </tr>

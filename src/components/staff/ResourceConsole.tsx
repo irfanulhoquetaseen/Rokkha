@@ -62,10 +62,10 @@ const GROUPS: { id: Group; label: Bilingual }[] = [
 // Generic rule (no per-code lists): status → services, consumable stock → blood & medicines, the rest → beds & equipment.
 const groupOf = (r: ConsoleRow): Group => (r.kind === "STATUS" ? "services" : r.consumable ? "blood" : "beds");
 
-const btnBase = "min-h-11 min-w-11 rounded-md px-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40";
-const stepBtn = `${btnBase} border border-zinc-300 text-xl hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800`;
-const inputCls = "min-h-11 w-full rounded-md border border-zinc-300 bg-transparent px-3 text-base dark:border-zinc-600";
-const alertCls = "rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200";
+const btnBase = "min-h-11 min-w-11 rounded-lg px-3 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40";
+const stepBtn = `${btnBase} border border-[var(--border-strong)] bg-[var(--bg-surface)] text-xl hover:bg-[var(--bg-subtle)]`;
+const inputCls = "min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)]";
+const alertCls = "rounded-lg border border-[var(--emergency-border)] bg-[var(--emergency-tint)] px-3 py-2 text-sm text-[var(--emergency-text)]";
 
 /** The intended end state of a change, so it can be re-applied as an absolute value after a conflict. */
 function intendedValues(row: ConsoleRow, change: Change): ServerValues {
@@ -302,14 +302,14 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
           <label htmlFor="staff-search" className="text-sm font-medium">{staff.search[lang]}</label>
           <input id="staff-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} className={inputCls} autoComplete="off" />
         </div>
-        <div role="group" aria-label={staff.filter[lang]} className="flex gap-1 rounded-md border border-zinc-300 p-1 dark:border-zinc-600">
+        <div role="group" aria-label={staff.filter[lang]} className="flex gap-1 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-1 shadow-2xs">
           {filters.map((f) => (
             <button
               key={f.id}
               type="button"
               aria-pressed={filter === f.id}
               onClick={() => setFilter(f.id)}
-              className="min-h-11 flex-1 rounded px-3 text-sm font-medium aria-pressed:bg-zinc-900 aria-pressed:text-white dark:aria-pressed:bg-zinc-100 dark:aria-pressed:text-zinc-900"
+              className="min-h-11 flex-1 rounded-lg px-3 text-sm font-semibold text-[var(--text-primary)] sm:whitespace-nowrap aria-pressed:bg-[var(--brand-primary)] aria-pressed:text-white"
             >
               {f.label[lang]}
             </button>
@@ -317,7 +317,7 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
         </div>
       </div>
 
-      {visible.length === 0 && <p className="rounded-md bg-zinc-100 p-4 text-sm dark:bg-zinc-900">{staff.noMatch[lang]}</p>}
+      {visible.length === 0 && <p className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-muted)]">{staff.noMatch[lang]}</p>}
 
       {GROUPS.map((g) => {
         const items = visible.filter((r) => groupOf(r) === g.id);
@@ -325,7 +325,7 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
         return (
           <section key={g.id} aria-labelledby={`group-${g.id}`} className="flex flex-col gap-2">
             <h2 id={`group-${g.id}`} className="text-lg font-bold">{g.label[lang]}</h2>
-            <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {items.map((r) => {
                 const u = ui[r.id] ?? {};
                 const name = lang === "bn" ? r.nameBn : r.nameEn;
@@ -338,12 +338,12 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
                     key={r.id}
                     data-code={r.code}
                     aria-busy={busy}
-                    className={`flex flex-col gap-2 rounded-lg border p-3 ${stale ? "border-yellow-400 bg-yellow-50 dark:border-yellow-600 dark:bg-yellow-950" : "border-zinc-200 dark:border-zinc-800"}`}
+                    className={`flex flex-col gap-2.5 rounded-xl border p-4 shadow-xs ${stale ? "border-[var(--warning-border)] bg-[var(--warning-bg)]" : "border-[var(--border-default)] bg-[var(--bg-surface)]"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h3 className="font-semibold">{name}</h3>
-                        <p className={`text-xs ${stale ? "font-semibold text-yellow-800 dark:text-yellow-300" : "text-zinc-600 dark:text-zinc-400"}`}>
+                        <p className={`text-xs ${stale ? "font-semibold text-[var(--warning-text)]" : "text-[var(--text-muted)]"}`}>
                           {staffFmt.updatedAgo(ageMin)[lang]}
                           {stale && ` · ${staff.stale[lang]}`}
                         </p>
@@ -352,9 +352,9 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
                         <p className="shrink-0 text-right tabular-nums">
                           <span className="sr-only">{staff.available[lang]}: </span>
                           <span data-testid="available" className="text-2xl font-bold">{r.available}</span>
-                          <span aria-hidden="true" className="text-zinc-600 dark:text-zinc-400"> / </span>
+                          <span aria-hidden="true" className="text-[var(--text-muted)]"> / </span>
                           <span className="sr-only">, {staff.total[lang]}: </span>
-                          <span data-testid="total" className="text-zinc-600 dark:text-zinc-400">{r.total}</span>
+                          <span data-testid="total" className="text-[var(--text-muted)]">{r.total}</span>
                         </p>
                       ) : (
                         <button
@@ -366,7 +366,7 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
                           onClick={() => void send(r, { op: "status", isAvailable: !r.isAvailable })}
                           className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-1 disabled:opacity-60"
                         >
-                          <span className={`relative h-7 w-12 rounded-full transition-colors motion-reduce:transition-none ${r.isAvailable ? "bg-green-600" : "bg-zinc-400 dark:bg-zinc-600"}`}>
+                          <span className={`relative h-7 w-12 rounded-full transition-colors motion-reduce:transition-none ${r.isAvailable ? "bg-[var(--brand-primary)]" : "bg-zinc-400 dark:bg-zinc-600"}`}>
                             <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all motion-reduce:transition-none ${r.isAvailable ? "left-6" : "left-1"}`} />
                           </span>
                           <span className="w-10 text-left text-sm font-semibold">{r.isAvailable ? staff.on[lang] : staff.off[lang]}</span>
@@ -399,14 +399,14 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
                           aria-expanded={!!u.editing}
                           disabled={blocked}
                           onClick={() => patchUi(r.id, { editing: !u.editing })}
-                          className={`${btnBase} ml-auto border border-zinc-300 text-sm dark:border-zinc-600`}
+                          className={`${btnBase} ml-auto border border-[var(--border-strong)] bg-[var(--bg-surface)] text-sm hover:bg-[var(--bg-subtle)]`}
                         >
                           {staff.set[lang]}
                         </button>
                       </div>
                     )}
 
-                    {busy && <p className="text-xs text-zinc-600 dark:text-zinc-400" aria-live="polite">{staff.saving[lang]}</p>}
+                    {busy && <p className="text-xs text-[var(--text-muted)]" aria-live="polite">{staff.saving[lang]}</p>}
 
                     {r.kind === "COUNTABLE" && u.editing && !u.conflict && (
                       // Keyed by version: an untouched form re-mounts with the live values; a dirty one is
@@ -419,7 +419,7 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
                         className="grid grid-cols-2 gap-2"
                       >
                         {u.changedElsewhere && (
-                          <p data-testid="changed-elsewhere" role="status" className="col-span-2 rounded-md border border-orange-400 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-950 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-100">
+                          <p data-testid="changed-elsewhere" role="status" className="col-span-2 rounded-lg border border-orange-400 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-950 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-100">
                             {realtime.changedElsewhere[lang]}
                           </p>
                         )}
@@ -431,10 +431,10 @@ export function ResourceConsole({ lang, hospitalId, initialRows, nowMs, staleAft
                           <label htmlFor={`${r.id}-total`} className="text-sm">{staff.total[lang]}</label>
                           <input id={`${r.id}-total`} name="total" type="number" inputMode="numeric" min={0} max={MAX_STOCK} defaultValue={r.total} className={inputCls} />
                         </div>
-                        <button type="submit" disabled={busy} className={`${btnBase} bg-red-700 text-sm text-white hover:bg-red-800`}>
+                        <button type="submit" disabled={busy} className={`${btnBase} bg-[var(--brand-primary)] text-sm text-white hover:bg-[var(--brand-primary-hover)]`}>
                           {staff.save[lang]}
                         </button>
-                        <button type="button" disabled={busy} onClick={() => patchUi(r.id, {})} className={`${btnBase} border border-zinc-300 text-sm dark:border-zinc-600`}>
+                        <button type="button" disabled={busy} onClick={() => patchUi(r.id, {})} className={`${btnBase} border border-[var(--border-strong)] bg-[var(--bg-surface)] text-sm hover:bg-[var(--bg-subtle)]`}>
                           {staff.cancel[lang]}
                         </button>
                       </form>

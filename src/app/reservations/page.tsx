@@ -12,7 +12,7 @@ import { getLang } from "@/server/i18n/lang";
 import { listMyReservations, type Page } from "@/server/reservations/queries";
 import type { ReservationView } from "@/server/reservations/view";
 
-export const metadata: Metadata = { title: "My reservations — JibonSetu" };
+export const metadata: Metadata = { title: "My reservations — Rokkha" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -27,7 +27,7 @@ export default function MyReservationsPage({ searchParams }: PageProps<"/reserva
 }
 
 const pageLink =
-  "inline-flex min-h-11 items-center rounded-lg border border-zinc-300 px-3 font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800";
+  "inline-flex min-h-11 items-center rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 font-semibold text-[var(--text-primary)] shadow-2xs hover:bg-[var(--bg-subtle)]";
 
 async function ListBody({ searchParams }: { searchParams: SearchParams }) {
   const [sp, user, lang] = await Promise.all([searchParams, getCurrentUser(), getLang()]);
@@ -92,12 +92,12 @@ function Row({ r, lang }: { r: ReservationView; lang: Lang }) {
     <li data-testid="reservation-row" data-id={r.id}>
       <Link
         href={`/reservations/${encodeURIComponent(r.id)}`}
-        className="flex items-center gap-3 rounded-xl border border-zinc-200 p-4 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs transition-colors hover:border-[var(--brand-primary)] hover:bg-[var(--bg-brand-tint)]"
       >
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="font-bold break-words">{lang === "bn" ? r.hospital.nameBn : r.hospital.nameEn}</p>
           <p className="text-sm break-words">{lang === "bn" ? r.resource.nameBn : r.resource.nameEn}</p>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="text-xs text-[var(--text-muted)]">
             {t.createdAt[lang]}: {dateFmt[lang].format(r.createdAt)}
           </p>
         </div>

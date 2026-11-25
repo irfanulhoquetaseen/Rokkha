@@ -29,9 +29,9 @@ const reasonColor = {
 } as const;
 
 function scoreClass(score: number, suitable: boolean): string {
-  if (!suitable) return "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200";
-  if (score >= 70) return "bg-green-700 text-white";
-  return "bg-amber-500 text-black";
+  if (!suitable) return "bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-default)]";
+  if (score >= 70) return "bg-[var(--brand-primary)] text-white";
+  return "bg-[var(--accent-gold)] text-[#14201B]";
 }
 
 export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: Lang; nowMs: number; hold: HoldContext }) {
@@ -44,10 +44,10 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
       data-testid="hospital-card"
       data-hospital-id={item.hospitalId}
       data-rank={item.rank}
-      className={`flex flex-col gap-3 rounded-xl border p-4 ${item.suitable ? "border-zinc-200 dark:border-zinc-800" : "border-zinc-200 bg-zinc-50 opacity-90 dark:border-zinc-800 dark:bg-zinc-900/60"}`}
+      className={`flex flex-col gap-3 rounded-xl border p-4 shadow-xs ${item.suitable ? "border-[var(--border-default)] bg-[var(--bg-surface)]" : "border-[var(--border-default)] bg-[var(--bg-subtle)]/70"}`}
     >
       <div className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-text)] text-sm font-bold text-white dark:bg-[var(--bg-brand-tint)] dark:text-[var(--brand-primary-text)]">
           {fmtNum(item.rank, lang)}
         </span>
         <div className="min-w-0 flex-1">
@@ -55,15 +55,15 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
             <Link
               href={`/hospitals/${encodeURIComponent(h.slug)}`}
               prefetch={false}
-              className="underline decoration-zinc-400 underline-offset-2 hover:decoration-current"
+              className="text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-2 hover:text-[var(--brand-primary-text)] hover:decoration-current"
             >
               {lang === "bn" ? h.nameBn : h.nameEn}
             </Link>
           </h3>
-          <p className="text-sm break-words text-zinc-600 dark:text-zinc-400">{h.address}</p>
+          <p className="text-sm break-words text-[var(--text-muted)]">{h.address}</p>
         </div>
         <span
-          className={`shrink-0 rounded-lg px-2 py-1 text-center text-sm font-bold ${scoreClass(item.score, item.suitable)}`}
+          className={`shrink-0 rounded-lg px-2.5 py-1 text-center text-sm font-bold tabular-nums ${scoreClass(item.score, item.suitable)}`}
         >
           <span className="sr-only">{finder.score[lang]} </span>
           {fmtNum(item.score, lang)}
@@ -71,17 +71,25 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm">
         {!item.suitable && (
-          <span className="rounded bg-red-700 px-2 py-0.5 text-xs font-bold text-white">{finder.notSuitable[lang]}</span>
+          <span className="rounded-md bg-[var(--emergency)] px-2 py-0.5 text-xs font-bold text-white">{finder.notSuitable[lang]}</span>
         )}
         <TypeBadges type={h.type} freeService={h.freeService} lang={lang} />
-        <span data-testid="distance">
+        {h.isDemo && (
+          <span
+            data-testid="hospital-demo-tag"
+            className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--warning-text)]"
+          >
+            {finder.demoTag[lang]}
+          </span>
+        )}
+        <span data-testid="distance" className="text-[var(--text-muted)]">
           {finder.distance[lang]}: {fmtKm(item.distanceKm, lang)}
         </span>
         <span
           data-testid="last-updated"
-          className={old ? "rounded bg-yellow-200 px-1 font-medium text-yellow-950" : "text-zinc-600 dark:text-zinc-400"}
+          className={old ? "rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-1.5 py-0.5 text-xs font-semibold text-[var(--warning-text)]" : "text-[var(--text-muted)]"}
           title={old ? finder.staleWarning[lang] : undefined}
         >
           {old && "⚠️ "}
@@ -100,7 +108,7 @@ export function HospitalCard({ item, lang, nowMs, hold }: { item: Item; lang: La
       <HospitalPhone phone={h.phone} isDemo={h.isDemo} name={lang === "bn" ? h.nameBn : h.nameEn} lang={lang} />
 
       {item.holdable.length > 0 && hold.citizen !== false && (
-        <div data-testid="hold-section" className="flex flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+        <div data-testid="hold-section" className="flex flex-col gap-2 border-t border-[var(--border-default)] pt-3">
           <p className="text-sm font-bold">{reservations.holdSectionTitle[lang]}</p>
           {/* Signed out sees one login link, so list every holdable count here (signed in: counts are on the buttons). */}
           {!hold.citizen && (

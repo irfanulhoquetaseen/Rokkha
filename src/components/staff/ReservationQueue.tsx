@@ -58,8 +58,8 @@ function mergeNewer(prev: QueueRow[], next: QueueRow[]): QueueRow[] {
 
 const noopSubscribe = () => () => {};
 
-const inputCls = "min-h-11 w-full rounded-md border border-zinc-300 bg-transparent px-3 text-base dark:border-zinc-600";
-const btn = "inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60";
+const inputCls = "min-h-11 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)]";
+const btn = "inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60";
 
 /**
  * A hospital's reservation queue for its staff: search (debounced), status filter, sort, pagination and
@@ -265,9 +265,9 @@ export function ReservationQueue({
 
       <div aria-busy={loading} className={loading ? "opacity-60 transition-opacity motion-reduce:transition-none" : undefined}>
         {data.items.length === 0 ? (
-          <p data-testid="queue-empty" className="rounded-md bg-zinc-100 p-4 text-sm dark:bg-zinc-900">{staff.queueEmpty[lang]}</p>
+          <p data-testid="queue-empty" className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-muted)]">{staff.queueEmpty[lang]}</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {data.items.map((r) => {
               const busy = busyId === r.id;
               // One action at a time across the whole list, and nothing before hydration.
@@ -278,12 +278,12 @@ export function ReservationQueue({
               return (
                 <li
                   key={r.id} data-testid="queue-row" data-reservation-id={r.id} data-status={r.status}
-                  className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                  className="flex flex-col gap-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-semibold break-words">{r.citizen.name}</p>
-                      <a data-testid="queue-phone" href={`tel:${r.citizen.phone}`} className="text-sm text-blue-800 underline dark:text-blue-300">
+                      <a data-testid="queue-phone" href={`tel:${r.citizen.phone}`} className="text-sm font-medium text-[var(--brand-primary-text)] underline">
                         {r.citizen.phone}
                       </a>
                     </div>
@@ -301,18 +301,18 @@ export function ReservationQueue({
                     </p>
                   )}
                   {r.status === "REJECTED" && r.rejectedReason && (
-                    <p className="text-sm text-red-900 dark:text-red-300">{rt.rejectedReason[lang]}: {r.rejectedReason}</p>
+                    <p className="text-sm text-[var(--emergency-text)]">{rt.rejectedReason[lang]}: {r.rejectedReason}</p>
                   )}
 
                   {r.status === "HELD" && !rejecting && !timeUp && (
                     <div className="grid grid-cols-2 gap-2">
-                      <button type="button" disabled={off} aria-busy={busy} onClick={() => act(r, "checkIn")} className={`${btn} bg-blue-700 text-white hover:bg-blue-800`}>
+                      <button type="button" disabled={off} aria-busy={busy} onClick={() => act(r, "checkIn")} className={`${btn} bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]`}>
                         {busy ? staff.working[lang] : staff.checkIn[lang]}
                       </button>
                       <button
                         type="button" disabled={off}
                         onClick={() => { setRejectingId(r.id); setReason(""); setError(null); }}
-                        className={`${btn} border-2 border-red-700 text-red-800 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950`}
+                        className={`${btn} border-2 border-[var(--emergency)] text-[var(--emergency-text)] hover:bg-[var(--emergency-tint)]`}
                       >
                         {staff.reject[lang]}
                       </button>
@@ -329,17 +329,17 @@ export function ReservationQueue({
                         maxLength={REASON_MAX} autoComplete="off" autoFocus className={inputCls}
                       />
                       <div className="grid grid-cols-2 gap-2">
-                        <button type="button" disabled={off} onClick={() => setRejectingId(null)} className={`${btn} border-2 border-zinc-700 dark:border-zinc-300`}>
+                        <button type="button" disabled={off} onClick={() => setRejectingId(null)} className={`${btn} border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)]`}>
                           {staff.cancel[lang]}
                         </button>
-                        <button type="submit" disabled={off || !reasonOk || timeUp} aria-busy={busy} className={`${btn} bg-red-700 text-white hover:bg-red-800`}>
+                        <button type="submit" disabled={off || !reasonOk || timeUp} aria-busy={busy} className={`${btn} bg-[var(--emergency)] text-white hover:bg-[var(--emergency-hover)]`}>
                           {busy ? staff.working[lang] : staff.rejectSubmit[lang]}
                         </button>
                       </div>
                     </form>
                   )}
                   {r.status === "ARRIVED" && (
-                    <button type="button" disabled={off} aria-busy={busy} onClick={() => act(r, "complete")} className={`${btn} w-full bg-green-700 text-white hover:bg-green-800`}>
+                    <button type="button" disabled={off} aria-busy={busy} onClick={() => act(r, "complete")} className={`${btn} w-full bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]`}>
                       {busy ? staff.working[lang] : staff.complete[lang]}
                     </button>
                   )}
@@ -351,13 +351,13 @@ export function ReservationQueue({
       </div>
 
       <nav aria-label={rt.page[lang]} className="flex items-center justify-between gap-2">
-        <button type="button" disabled={!hydrated || loading || data.page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className={`${btn} border border-zinc-300 dark:border-zinc-600`}>
+        <button type="button" disabled={!hydrated || loading || data.page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className={`${btn} border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)]`}>
           {rt.prev[lang]}
         </button>
-        <span className="text-sm tabular-nums">
+        <span className="text-sm tabular-nums text-[var(--text-muted)]">
           {rt.page[lang]} {fmtNum(data.page, lang)} / {fmtNum(lastPage, lang)}
         </span>
-        <button type="button" disabled={!hydrated || loading || data.page >= lastPage} onClick={() => setPage((p) => p + 1)} className={`${btn} border border-zinc-300 dark:border-zinc-600`}>
+        <button type="button" disabled={!hydrated || loading || data.page >= lastPage} onClick={() => setPage((p) => p + 1)} className={`${btn} border border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)]`}>
           {rt.next[lang]}
         </button>
       </nav>

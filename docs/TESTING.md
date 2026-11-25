@@ -1,6 +1,6 @@
 # Testing Strategy & Verification
 
-JibonSetu uses a three-layer test suite (**Vitest unit**, **Vitest real-Postgres integration**, and **Playwright mobile + desktop E2E**), with strict isolation so automated tests never touch or truncate a non-test database.
+Rokkha uses a three-layer test suite (**Vitest unit**, **Vitest real-Postgres integration**, and **Playwright mobile + desktop E2E**), with strict isolation so automated tests never touch or truncate a non-test database.
 
 ---
 
@@ -66,7 +66,7 @@ All concurrency tests open parallel `prisma.$transaction` calls across separate 
 Every E2E test runs across both **`mobile` (`360×800`, Pixel 7)** and **`desktop` (`1440×900`, Desktop Chrome)**:
 - `auth.spec.ts` — signup, logout, `?next=` login redirect, invalid BD phone client validation, `bn`/`en` toggle, duplicate `CONFLICT`, wrong password `UNAUTHENTICATED`, missing `Origin` rejection, pre-hydration submit safety.
 - `finder.spec.ts` — public condition selection, filter/sort URL state, resource filter & notices, empty radius guidance, `/first-aid/[condition]` sources & 404, disabled `tel:` on demo hospitals vs. clickable `999`, zero horizontal overflow at `360 px`.
-- `health.spec.ts` — `/api/health` (`db: "up"`), `/status` Socket.io connected, `DEMO DATA` banner visibility.
+- `health.spec.ts` — `/api/health` (`db: "up"`), `/status` Socket.io connected, header `Demo` badge + popover visibility.
 - `reservations.spec.ts` — auth round-trip, hold → tracker countdown → two-tap cancel, double-click idempotency, `LIMIT_REACHED`, `SOLD_OUT` alternatives, foreign tracker `404`.
 - `staff.spec.ts` & `staff-queue.spec.ts` — own-hospital console edits & status switches, foreign hospital `404`, `409` ConflictPanel Reload flow, check-in/complete/reject queue workflow (non-destructive restore in `afterEach`).
 - `realtime-finder.spec.ts`, `realtime-staff.spec.ts`, `realtime-acceptance.spec.ts` — multi-context live Finder `< 1 s` assertion (when `BASE_URL` set; `< 3 s` locally), live `/hospitals/<slug>` updates, dirty `Set` form freeze + `409 CONFLICT`, live tracker updates from staff actions, DevTools offline `"Reconnecting…"` + online snapshot recovery.

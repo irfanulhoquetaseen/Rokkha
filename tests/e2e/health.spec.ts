@@ -15,13 +15,15 @@ test("status page shows API health and a live Socket.io connection", async ({ pa
   await expect(page.getByTestId("socket-status")).toHaveText("connected", { timeout: 15_000 });
 });
 
-test("DEMO DATA banner is visible at the very top of every page", async ({ page }) => {
+test("Demo pill badge is visible at the top of every page and opens its popover", async ({ page }) => {
   for (const path of ["/", "/login", "/signup", "/status"]) {
     await page.goto(path);
-    // First visible element in <body> (Next injects hidden helper nodes, so skip those).
-    const first = page.locator("body > :visible").first();
-    await expect(first).toHaveText("DEMO DATA — not real hospital availability");
-    const box = await first.boundingBox();
-    expect(box?.y).toBe(0);
+    const badge = page.getByTestId("demo-badge");
+    await expect(badge).toBeVisible();
+    await expect(badge).toContainText("ডেমো");
+    const box = await badge.boundingBox();
+    expect(box?.y).toBeLessThan(80);
   }
+  await page.getByTestId("demo-badge").click();
+  await expect(page.getByTestId("demo-popover")).toContainText("এই হাসপাতালগুলো কাল্পনিক");
 });

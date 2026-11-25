@@ -20,7 +20,7 @@ export function LangToggle({ lang }: { lang: Lang }) {
       onClick={switchLang}
       aria-label={auth.switchLangLabel[lang]}
       lang={other}
-      className="min-h-11 min-w-11 rounded-md border border-zinc-300 px-3 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
+      className="min-h-11 min-w-11 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]"
     >
       {auth.switchLang[lang]}
     </button>

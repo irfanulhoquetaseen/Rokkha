@@ -62,7 +62,7 @@ test("admin logs in, creates a hospital, edits it, archives it, and sees it vani
 
   await expect(page).toHaveURL(/\/admin$/, { timeout: 15_000 });
   await expect(page.getByTestId("admin-hospitals-table")).toBeVisible();
-  await expect(page.getByText("DEMO DATA — not real hospital availability")).toBeVisible();
+  await expect(page.getByTestId("demo-badge")).toBeVisible();
   await expectNoHorizontalScroll(page);
 
   // 2. Create a new live hospital with ICU_BED + GENERAL_BED in Dhanmondi

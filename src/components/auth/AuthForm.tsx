@@ -15,7 +15,7 @@ type FieldErrors = Partial<Record<Field, Bilingual>>;
 
 const FIELD_ORDER: Field[] = ["name", "phone", "password"];
 const inputCls =
-  "min-h-12 w-full rounded-md border border-zinc-300 bg-transparent px-3 text-base outline-none focus:border-red-700 focus:ring-2 focus:ring-red-700/30 aria-[invalid=true]:border-red-600 dark:border-zinc-600";
+  "min-h-12 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 text-base text-[var(--text-primary)] outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/25 aria-[invalid=true]:border-[var(--emergency)]";
 
 /** Same rules as the server (auth service); messages are bilingual so a lang switch re-translates them. */
 function validate(mode: Mode, v: Record<Field, string>): FieldErrors {
@@ -169,7 +169,7 @@ export function AuthForm({ mode, lang, next }: { mode: Mode; lang: Lang; next: s
         type="submit"
         disabled={pending}
         aria-busy={pending}
-        className="min-h-12 rounded-md bg-red-700 px-4 text-base font-semibold text-white hover:bg-red-800 disabled:opacity-60"
+        className="min-h-12 rounded-lg bg-[var(--brand-primary)] px-4 text-base font-semibold text-white shadow-xs transition-colors hover:bg-[var(--brand-primary-hover)] disabled:opacity-60"
       >
         {pending ? auth.submitting[lang] : mode === "signup" ? auth.signupSubmit[lang] : auth.loginSubmit[lang]}
       </button>

@@ -1,6 +1,6 @@
-# JibonSetu Architecture
+# Rokkha Architecture
 
-JibonSetu runs as a single long-lived Node.js 24 process hosting Next.js 16 (App Router), Socket.io 4.8, and an in-process reservation expiry sweeper against PostgreSQL 18 via Prisma 7.
+Rokkha runs as a single long-lived Node.js 24 process hosting Next.js 16 (App Router), Socket.io 4.8, and an in-process reservation expiry sweeper against PostgreSQL 18 via Prisma 7.
 
 ---
 
@@ -260,7 +260,7 @@ Pure, deterministic scoring on a `0–100` scale:
 
 ## 8. Security Model
 
-- **Authentication**: Custom session auth (`src/server/auth/service.ts`, `session.ts`, `password.ts`). Passwords hashed with `bcryptjs` (cost 10, 72-byte UTF-8 check, dummy hash verified on unknown phone numbers to equalize timing). Sessions store only the `SHA-256` hex of a 32-byte `base64url` token (`7`-day TTL, `lastSeenAt` throttled every `5 min`). Cookie `jibonsetu_session` is `httpOnly`, `SameSite=Lax`, and `Secure` in production. Sessions rotate on login/signup and delete on logout or admin role changes.
+- **Authentication**: Custom session auth (`src/server/auth/service.ts`, `session.ts`, `password.ts`). Passwords hashed with `bcryptjs` (cost 10, 72-byte UTF-8 check, dummy hash verified on unknown phone numbers to equalize timing). Sessions store only the `SHA-256` hex of a 32-byte `base64url` token (`7`-day TTL, `lastSeenAt` throttled every `5 min`). Session cookie `jibonsetu_session` is `httpOnly`, `SameSite=Lax`, and `Secure` in production. Sessions rotate on login/signup and delete on logout or admin role changes.
 - **Authorization & 404 Non-Disclosure**: `requireUser`, `requireRole`, `requireHospitalAccess`, and `requireReservationOwner` (`src/server/auth/guards.ts`) derive identity strictly from the server session. Signed-in access denials return **`404 NOT_FOUND`** (never `403`) and record `AUTHZ_DENIED` in `AuditLog` (`entityId` truncated to 64 chars). Because Next.js App Router streamed pages begin HTTP `200`, `src/proxy.ts` enforces request-time `307` redirects and `404` rewrites before rendering for `/staff*`, `/admin*`, `/reservations*`, `/first-aid/*`, and `/hospitals/*`.
 - **CSRF & Origin Guard**: `isSameOrigin` (`src/server/http/origin.ts`) rejects mutations whose `Origin` header host mismatches `x-forwarded-host` / `host` (`VALIDATION_ERROR` 400). Socket.io `allowRequest` applies the same check to cross-origin browser WebSocket handshakes.
 - **Rate Limiting** (`src/server/auth/rate-limit.ts`, `src/server/http/api-handler.ts`): Fixed-window in-memory limiters tuned via env vars (`LOGIN_LIMIT_PER_PHONE=5` / 15m, `LOGIN_LIMIT_PER_IP=30` / 15m, `SIGNUP_LIMIT_PER_IP=10` / 60m, `RESERVE_LIMIT_PER_USER=20` / 1m; `clientIp()` trusts the right-most `X-Forwarded-For` proxy hop). First blocked login hit per window writes `LOGIN_FAILED` (`RATE_LIMITED`) to `AuditLog`.

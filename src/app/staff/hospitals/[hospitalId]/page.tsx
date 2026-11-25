@@ -12,7 +12,7 @@ import { STALE_AFTER_MS } from "@/server/matching";
 import { listHospitalQueue, type Page, type StaffReservationRow } from "@/server/reservations/queries";
 import { listHospitalResources, type ResourceView } from "@/server/resources/queries";
 
-export const metadata: Metadata = { title: "Staff console — JibonSetu" };
+export const metadata: Metadata = { title: "Staff console — Rokkha" };
 
 type Params = Promise<{ hospitalId: string }>;
 
@@ -59,10 +59,10 @@ async function ConsoleBody({ params }: { params: Params }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold uppercase tracking-wide text-red-700 dark:text-red-400">{staff.title[lang]}</p>
-        <h1 className="text-2xl font-bold">{lang === "bn" ? data.hospital.nameBn : data.hospital.nameEn}</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">{staff.intro[lang]}</p>
+      <div className="flex flex-col gap-1 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs">
+        <p className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary-text)]">{staff.title[lang]}</p>
+        <h1 className="text-2xl font-extrabold">{lang === "bn" ? data.hospital.nameBn : data.hospital.nameEn}</h1>
+        <p className="text-sm text-[var(--text-muted)]">{staff.intro[lang]}</p>
       </div>
       <ResourceConsole
         lang={lang}

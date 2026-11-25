@@ -177,9 +177,9 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
       <p role="status" aria-live="polite" data-testid="tracker-live-status" className="sr-only">
         {announcement}
       </p>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs">
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{t.resource[lang]}</p>
+          <p className="text-sm text-[var(--text-muted)]">{t.resource[lang]}</p>
           <p className="text-lg font-bold break-words">
             {lang === "bn" ? r.resource.nameBn : r.resource.nameEn}
             {r.quantity > 1 && ` × ${fmtNum(r.quantity, lang)}`}
@@ -189,27 +189,27 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
       </div>
 
       {held && (
-        <div className="flex flex-col items-center gap-2 rounded-xl bg-amber-50 p-4 text-center dark:bg-amber-950/30">
-          <p className="text-sm font-semibold">{t.timeLeft[lang]}</p>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-5 text-center shadow-xs">
+          <p className="text-sm font-semibold text-[var(--warning-text)]">{t.timeLeft[lang]}</p>
           <p
             data-testid="countdown"
             aria-live="off"
-            className="font-mono text-5xl font-bold tabular-nums text-amber-900 dark:text-amber-200"
+            className="font-mono text-5xl font-extrabold tabular-nums text-[var(--warning-text)]"
           >
             {timeUp ? t.expired[lang] : fmtCountdown(leftMs, lang)}
           </p>
-          <p className="text-sm">{t.holdHint[lang]}</p>
+          <p className="text-sm text-[var(--text-primary)]">{t.holdHint[lang]}</p>
         </div>
       )}
 
       {r.status === "REJECTED" && r.rejectedReason && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900 dark:bg-red-950 dark:text-red-200">
+        <p className="rounded-xl border border-[var(--emergency-border)] bg-[var(--emergency-tint)] px-4 py-3 text-sm font-medium text-[var(--emergency-text)]">
           {t.rejectedReason[lang]}: {r.rejectedReason}
         </p>
       )}
 
       {error && (
-        <p role="alert" data-testid="tracker-error" className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">
+        <p role="alert" data-testid="tracker-error" className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm font-medium text-[var(--warning-text)]">
           ⚠️ {error[lang]}
         </p>
       )}
@@ -219,7 +219,7 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
           type="button"
           data-testid="cancel-button"
           onClick={arm}
-          className={`${btn} w-full border-2 border-zinc-800 hover:bg-zinc-100 dark:border-zinc-300 dark:hover:bg-zinc-800`}
+          className={`${btn} w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]`}
         >
           {t.cancel[lang]}
         </button>
@@ -227,13 +227,13 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
       {held && !timeUp && armed && (
         // "Keep hold" sits exactly where "Cancel hold" was, and the destructive confirm is below it:
         // the 2nd tap of an accidental double tap lands on "Keep", never on "Yes, cancel".
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs">
           <button
             type="button"
             data-testid="cancel-keep"
             onClick={() => setArmed(false)}
             disabled={cancelling}
-            className={`${btn} w-full border-2 border-zinc-800 hover:bg-zinc-100 dark:border-zinc-300 dark:hover:bg-zinc-800`}
+            className={`${btn} w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]`}
           >
             {t.keepHold[lang]}
           </button>
@@ -244,21 +244,21 @@ export function Tracker({ initial, serverNowMs, lang }: { initial: TrackerReserv
             onClick={confirmCancel}
             disabled={cancelling}
             aria-busy={cancelling}
-            className={`${btn} w-full bg-red-700 text-white hover:bg-red-800`}
+            className={`${btn} w-full rounded-xl bg-[var(--emergency)] text-white hover:bg-[var(--emergency-hover)]`}
           >
             {cancelling ? t.cancelling[lang] : t.confirmCancel[lang]}
           </button>
         </div>
       )}
 
-      <section aria-labelledby="timeline-title" className="flex flex-col gap-2">
+      <section aria-labelledby="timeline-title" className="flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs">
         <h2 id="timeline-title" className="text-base font-bold">{t.timeline[lang]}</h2>
-        <ol data-testid="timeline" className="flex flex-col gap-2 border-l-2 border-zinc-300 pl-4 dark:border-zinc-700">
+        <ol data-testid="timeline" className="flex flex-col gap-2 border-l-2 border-[var(--border-default)] pl-4">
           {r.events.map((e, i) => (
             <li key={i} data-testid="timeline-event" data-status={e.toStatus} className="text-sm">
-              <span className="font-mono tabular-nums text-zinc-600 dark:text-zinc-400">{fmtClock(e.createdAt, lang)}</span>{" "}
+              <span className="font-mono tabular-nums text-[var(--text-muted)]">{fmtClock(e.createdAt, lang)}</span>{" "}
               <span className="font-semibold">{statusLabel(e.toStatus, lang)}</span>
-              {e.note && <span className="text-zinc-700 dark:text-zinc-300"> — {e.note}</span>}
+              {e.note && <span className="text-[var(--text-muted)]"> — {e.note}</span>}
             </li>
           ))}
         </ol>

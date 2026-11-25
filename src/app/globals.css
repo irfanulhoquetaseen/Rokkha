@@ -1,24 +1,94 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-page: #F7F9F8;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #EEF3F0;
+  --bg-brand-tint: #E8F3EE;
+  --text-primary: #14201B;
+  --text-muted: #4B5B55;
+  --border-default: #DDE5E1;
+  --border-strong: #B8C7C0;
+
+  --brand-primary: #006A4E;
+  --brand-primary-hover: #00523C;
+  --brand-primary-text: #005E45;
+
+  --emergency: #C8102E;
+  --emergency-hover: #A60D26;
+  --emergency-tint: #FDF2F4;
+  --emergency-text: #A80D26;
+  --emergency-border: #F2BCC5;
+
+  --accent-gold: #F4B400;
+  --warning-bg: #FEF6DF;
+  --warning-border: #E5B82E;
+  --warning-text: #6B4A00;
+}
+
+.dark {
+  --bg-page: #0B1210;
+  --bg-surface: #121D19;
+  --bg-subtle: #1A2822;
+  --bg-brand-tint: #102B22;
+  --text-primary: #ECF2EF;
+  --text-muted: #A3B5AD;
+  --border-default: #263831;
+  --border-strong: #395248;
+
+  --brand-primary: #0A7B5C;
+  --brand-primary-hover: #0D906D;
+  --brand-primary-text: #5CE0B3;
+
+  --emergency: #C8102E;
+  --emergency-hover: #DF1C3C;
+  --emergency-tint: #2A1217;
+  --emergency-text: #FDA4AF;
+  --emergency-border: #6F2432;
+
+  --accent-gold: #F4B400;
+  --warning-bg: #29200A;
+  --warning-border: #A47B00;
+  --warning-text: #FDE08D;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--bg-page);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-rokkha-bn), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+/* Rokkha logo: heart beats (lub-dub) inside the pin. Static for reduced-motion users. */
+.rk-beat {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rk-heartbeat 1.6s ease-in-out infinite;
+}
+@keyframes rk-heartbeat {
+  0%, 100% { transform: scale(1); }
+  12% { transform: scale(1.14); }
+  24% { transform: scale(1); }
+  36% { transform: scale(1.09); }
+  50% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rk-beat { animation: none; }
 }

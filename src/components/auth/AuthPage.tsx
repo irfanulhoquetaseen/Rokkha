@@ -25,22 +25,22 @@ async function AuthBody({ mode, searchParams }: { mode: "login" | "signup"; sear
   const isLogin = mode === "login";
 
   return (
-    <>
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold">{isLogin ? auth.loginTitle[lang] : auth.signupTitle[lang]}</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">{auth.whyLogin[lang]}</p>
+    <div className="flex flex-col gap-5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-xs">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-2xl font-extrabold">{isLogin ? auth.loginTitle[lang] : auth.signupTitle[lang]}</h1>
+        <p className="text-sm text-[var(--text-muted)]">{auth.whyLogin[lang]}</p>
       </div>
       <AuthForm mode={mode} lang={lang} next={next} />
-      <p className="text-sm">
+      <p className="border-t border-[var(--border-default)] pt-3 text-sm text-[var(--text-muted)]">
         {isLogin ? auth.noAccount[lang] : auth.haveAccount[lang]}{" "}
         <Link
           href={`${isLogin ? "/signup" : "/login"}${nextQuery}`}
-          className="inline-flex min-h-11 items-center font-semibold text-red-700 underline dark:text-red-400"
+          className="inline-flex min-h-11 items-center font-semibold text-[var(--brand-primary-text)] underline"
         >
           {isLogin ? auth.signup[lang] : auth.login[lang]}
         </Link>
       </p>
-    </>
+    </div>
   );
 }
 

@@ -132,6 +132,11 @@ docs/                      PLAN.md, ARCHITECTURE.md, DEMO_SCRIPT.md
 - Use context7 for library docs instead of guessing APIs.
 - Keep this file the source of truth; if a rule must change, propose the edit first.
 
+## 10b. Quality first, without waste
+- Quality is the priority over cost. Every task keeps the full loop: implementer + independent reviewer + fix round, including UI, admin and docs (judges see the UI and test it on phones).
+- Use the strongest model (Opus) for engine, concurrency, realtime, security AND user-facing UI/UX work. Sonnet only for purely mechanical edits (renames, copy changes, config).
+- Waste to avoid (no quality cost): while iterating, run only the tests you touched with a compact reporter (`--reporter=dot`; Playwright `--reporter=line`) and show only failures; run full suites at the end of every task and phase. Read only the files a task needs; don't re-read files you just wrote.
+
 ## 11. Demo accounts (seeded; passwords only in .env / private submission notes, never in README)
 - admin, 2 hospital staff (different hospitals), 3 citizens — for live concurrency demos.
 

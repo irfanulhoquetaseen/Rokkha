@@ -26,22 +26,22 @@ export function FirstAidCard({ guide, lang, variant }: { guide: FirstAidGuideVie
 
   const body = (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <section>
-          <H className="mb-2 text-base font-bold text-green-800 dark:text-green-300">✅ {finder.dos[lang]}</H>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-relaxed">
+      <div className="grid gap-3 md:grid-cols-2">
+        <section className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-brand-tint)] p-3.5">
+          <H className="mb-2 text-base font-bold text-[var(--brand-primary-text)]">✅ {finder.dos[lang]}</H>
+          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-[var(--text-primary)]">
             {dos.map((d, i) => <li key={i}>{d}</li>)}
           </ul>
         </section>
-        <section>
-          <H className="mb-2 text-base font-bold text-red-800 dark:text-red-300">❌ {finder.donts[lang]}</H>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-relaxed">
+        <section className="rounded-lg border border-[var(--emergency-border)] bg-[var(--emergency-tint)] p-3.5">
+          <H className="mb-2 text-base font-bold text-[var(--emergency-text)]">❌ {finder.donts[lang]}</H>
+          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-[var(--text-primary)]">
             {donts.map((d, i) => <li key={i}>{d}</li>)}
           </ul>
         </section>
       </div>
       <Call999Button lang={lang} />
-      <p className="text-xs break-words text-zinc-700 dark:text-zinc-300">
+      <p className="text-xs break-words text-[var(--text-muted)]">
         {finder.source[lang]}:{" "}
         {/^https?:\/\//i.test(guide.sourceUrl) ? (
           <a
@@ -49,7 +49,7 @@ export function FirstAidCard({ guide, lang, variant }: { guide: FirstAidGuideVie
             href={guide.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium underline"
+            className="font-semibold text-[var(--brand-primary-text)] underline"
           >
             {guide.sourceName}
           </a>
@@ -59,14 +59,14 @@ export function FirstAidCard({ guide, lang, variant }: { guide: FirstAidGuideVie
         )}{" "}
         · {finder[`review${guide.reviewStatus}`][lang]}
       </p>
-      <div role="note" className="rounded-md bg-amber-50 p-2 text-xs font-medium text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+      <div role="note" className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs font-medium text-[var(--warning-text)]">
         <p lang="bn">{finder.disclaimer.bn}</p>
         <p lang="en">{finder.disclaimer.en}</p>
       </div>
       {variant === "compact" && (
         <Link
           href={`/first-aid/${encodeURIComponent(guide.condition.code)}`}
-          className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-red-700 underline dark:text-red-400"
+          className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-[var(--brand-primary-text)] underline"
         >
           {finder.fullFirstAid[lang]} →
         </Link>
@@ -74,7 +74,7 @@ export function FirstAidCard({ guide, lang, variant }: { guide: FirstAidGuideVie
     </div>
   );
 
-  const shell = "rounded-xl border border-green-300 bg-green-50/60 p-4 dark:border-green-900 dark:bg-green-950/20";
+  const shell = "rounded-xl border border-[var(--brand-primary)]/30 bg-[var(--bg-surface)] p-4 shadow-xs sm:p-5";
   if (variant === "full") {
     return (
       <article data-testid="first-aid-card" className={shell}>
