@@ -31,6 +31,7 @@ import { parseFinderParams } from "@/server/finder/params";
 import { listDirectory, searchHospitals } from "@/server/finder/search";
 import { getHospitalStock, hospitalExists } from "@/server/reservations/queries";
 import { reserve } from "@/server/reservations/reserve";
+import * as stockMod from "@/server/reservations/stock";
 import { resetDb } from "../support/db";
 import { ensureResourceType, makeHeld, makeHospitalWithStock, makeUser } from "../support/fixtures";
 
@@ -356,6 +357,90 @@ describe("admin hospitals CRUD, transactional resources, and delete vs archive",
     }
     expect(archiveWon + reserveWon).toBe(iterations);
   }, 60_000);
+
+  it("deterministic race: archive commits between reserve's initial archivedAt check and takeStock -> reserve rolls back with CONFLICT", async () => {
+    const raceH = await makeHospitalWithStock({
+      slug: "det-archive-first",
+      stock: [{ code: "ICU_BED", total: 10, available: 10 }],
+    });
+    // Past terminal reservation so deleteOrArchiveHospital takes the archive branch
+    await prisma.reservation.create({
+      data: {
+        userId: citizen.id, hospitalId: raceH.hospital.id, resourceTypeId: raceH.types.ICU_BED.id,
+        hospitalResourceId: raceH.resources.ICU_BED.id, status: "CANCELLED", cancelledAt: new Date(),
+        expiresAt: new Date(), idempotencyKey: randomUUID(), requestHash: "det-1",
+      },
+    });
+
+    const origTakeStock = stockMod.takeStock;
+    const spy = vi.spyOn(stockMod, "takeStock").mockImplementationOnce(async (tx, hrId, qty) => {
+      // At this exact point, reserveTx has ALREADY passed its initial hr.hospital.archivedAt === null check.
+      // Run deleteOrArchiveHospital in a separate transaction to completion before takeStock acquires the row lock.
+      const archived = await deleteOrArchiveHospital(admin, raceH.hospital.id);
+      expect(archived).toEqual({ action: "archived" });
+      return origTakeStock(tx, hrId, qty);
+    });
+
+    try {
+      const code = await errorCodeOf(() =>
+        reserve(citizen, {
+          idempotencyKey: randomUUID(),
+          body: { hospitalId: raceH.hospital.id, resourceCode: "ICU_BED", quantity: 1 },
+        }),
+      );
+      expect(code).toBe("CONFLICT");
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      // Invariant: hospital is archived, 0 HELD reservations, and stock decrement rolled back cleanly
+      const h = await prisma.hospital.findUniqueOrThrow({ where: { id: raceH.hospital.id } });
+      expect(h.archivedAt).not.toBeNull();
+      expect(await prisma.reservation.count({ where: { hospitalId: raceH.hospital.id, status: "HELD" } })).toBe(0);
+      expect((await prisma.hospitalResource.findUniqueOrThrow({ where: { id: raceH.resources.ICU_BED.id } })).available).toBe(10);
+    } finally {
+      spy.mockRestore();
+    }
+  }, 30_000);
+
+  it("deterministic race: reserve holds HospitalResource lock while archive starts -> archive blocks on FOR UPDATE then fails with CONFLICT", async () => {
+    const raceH = await makeHospitalWithStock({
+      slug: "det-reserve-first",
+      stock: [{ code: "ICU_BED", total: 10, available: 10 }],
+    });
+    await prisma.reservation.create({
+      data: {
+        userId: citizen.id, hospitalId: raceH.hospital.id, resourceTypeId: raceH.types.ICU_BED.id,
+        hospitalResourceId: raceH.resources.ICU_BED.id, status: "CANCELLED", cancelledAt: new Date(),
+        expiresAt: new Date(), idempotencyKey: randomUUID(), requestHash: "det-2",
+      },
+    });
+
+    const origReadStock = stockMod.readStock;
+    let archivePromise: Promise<unknown> | null = null;
+    const spy = vi.spyOn(stockMod, "readStock").mockImplementationOnce(async (tx, id) => {
+      // reserveTx has already executed takeStock (holds HospitalResource lock) and inserted HELD reservation.
+      // Start archive concurrently so it blocks on SELECT ... FOR UPDATE until reserveTx commits.
+      archivePromise = deleteOrArchiveHospital(admin, raceH.hospital.id);
+      await new Promise((r) => setTimeout(r, 80));
+      return origReadStock(tx, id);
+    });
+
+    try {
+      const res = await reserve(citizen, {
+        idempotencyKey: randomUUID(),
+        body: { hospitalId: raceH.hospital.id, resourceCode: "ICU_BED", quantity: 1 },
+      });
+      expect(res.reservation.status).toBe("HELD");
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(archivePromise).not.toBeNull();
+      expect(await errorCodeOf(() => archivePromise!)).toBe("CONFLICT");
+
+      const h = await prisma.hospital.findUniqueOrThrow({ where: { id: raceH.hospital.id } });
+      expect(h.archivedAt).toBeNull();
+      expect(await prisma.reservation.count({ where: { hospitalId: raceH.hospital.id, status: "HELD" } })).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
+  }, 30_000);
 });
 
 describe("admin users, role changes, and session revocation", () => {
