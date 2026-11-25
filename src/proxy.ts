@@ -48,7 +48,7 @@ async function firstAidGate(req: NextRequest, pathname: string) {
   return NextResponse.next();
 }
 
-/** /hospitals/<id or slug> (public): 404 unless that hospital exists. */
+/** /hospitals/<id or slug> (public): 404 unless that hospital exists and is not archived. */
 async function hospitalGate(req: NextRequest, pathname: string) {
   const m = /^\/hospitals\/([^/]+)\/?$/.exec(pathname);
   if (!m) return notFound(req);

@@ -141,7 +141,7 @@ export async function getHospitalStock(idOrSlug: string): Promise<HospitalStock>
   const key = hospitalKeySchema.safeParse(idOrSlug);
   if (!key.success) throw new AppError("NOT_FOUND");
   const h = await prisma.hospital.findFirst({
-    where: { OR: [{ id: key.data }, { slug: key.data }] },
+    where: { archivedAt: null, OR: [{ id: key.data }, { slug: key.data }] },
     select: {
       id: true, slug: true, nameBn: true, nameEn: true, isDemo: true, liveDataEnabled: true,
       resources: {
@@ -161,19 +161,19 @@ export async function getHospitalStock(idOrSlug: string): Promise<HospitalStock>
   };
 }
 
-/** Cheap existence check by id or slug (one indexed select): lets the proxy answer unknown hospitals with a real 404. */
+/** Cheap existence check by id or slug (one indexed select): lets the proxy answer unknown/archived hospitals with a real 404. */
 export async function hospitalExists(idOrSlug: string): Promise<boolean> {
   const key = hospitalKeySchema.safeParse(idOrSlug);
   if (!key.success) return false;
-  const h = await prisma.hospital.findFirst({ where: { OR: [{ id: key.data }, { slug: key.data }] }, select: { id: true } });
+  const h = await prisma.hospital.findFirst({ where: { archivedAt: null, OR: [{ id: key.data }, { slug: key.data }] }, select: { id: true } });
   return h !== null;
 }
 
-/** Hospital names by id or slug (page title); null when unknown or malformed. */
+/** Hospital names by id or slug (page title); null when unknown, archived, or malformed. */
 export async function getHospitalName(idOrSlug: string): Promise<{ nameBn: string; nameEn: string } | null> {
   const key = hospitalKeySchema.safeParse(idOrSlug);
   if (!key.success) return null;
-  return prisma.hospital.findFirst({ where: { OR: [{ id: key.data }, { slug: key.data }] }, select: { nameBn: true, nameEn: true } });
+  return prisma.hospital.findFirst({ where: { archivedAt: null, OR: [{ id: key.data }, { slug: key.data }] }, select: { nameBn: true, nameEn: true } });
 }
 
 export type HospitalPage = {
