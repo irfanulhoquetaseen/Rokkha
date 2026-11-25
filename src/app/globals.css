@@ -60,6 +60,7 @@
   --font-sans: var(--font-rokkha-bn), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+html,
 body {
   background-color: var(--bg-page);
   color: var(--text-primary);

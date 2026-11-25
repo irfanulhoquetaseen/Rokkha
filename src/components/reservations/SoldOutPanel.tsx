@@ -4,6 +4,8 @@ import { fmtKm, fmtNum } from "@/components/finder/format";
 import { reservations as t } from "@/lib/i18n/reservations";
 import { HoldButton, type HoldButtonProps } from "./HoldButton";
 
+const DEMO_TAG = { bn: "ডেমো", en: "Demo" } as const;
+
 /** One next-best hospital from a SOLD_OUT response (`details.alternatives`). */
 export type AlternativeItem = {
   hospitalId: string;
@@ -34,7 +36,17 @@ export function SoldOutPanel(props: HoldButtonProps & { alternatives: Alternativ
           <ul className="flex flex-col gap-3">
             {alternatives.map((a) => (
               <li key={a.hospitalId} data-testid="alternative" className="flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3">
-                <p className="font-semibold break-words">{lang === "bn" ? a.nameBn : a.nameEn}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold break-words">{lang === "bn" ? a.nameBn : a.nameEn}</p>
+                  {a.isDemo && (
+                    <span
+                      data-testid="hospital-demo-tag"
+                      className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--warning-text)]"
+                    >
+                      {DEMO_TAG[lang]}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-[var(--text-muted)]">
                   {fmtKm(a.distanceKm, lang)} · {fmtNum(a.available, lang)} {t.available[lang]}
                 </p>

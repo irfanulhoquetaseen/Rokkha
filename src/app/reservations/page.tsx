@@ -6,6 +6,7 @@ import { fmtNum } from "@/components/finder/format";
 import { StatusBadge } from "@/components/reservations/StatusBadge";
 import { AppError } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
+import { finder } from "@/lib/i18n/finder";
 import { reservations as t } from "@/lib/i18n/reservations";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getLang } from "@/server/i18n/lang";
@@ -95,7 +96,17 @@ function Row({ r, lang }: { r: ReservationView; lang: Lang }) {
         className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs transition-colors hover:border-[var(--brand-primary)] hover:bg-[var(--bg-brand-tint)]"
       >
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="font-bold break-words">{lang === "bn" ? r.hospital.nameBn : r.hospital.nameEn}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-bold break-words">{lang === "bn" ? r.hospital.nameBn : r.hospital.nameEn}</p>
+            {r.hospital.isDemo && (
+              <span
+                data-testid="hospital-demo-tag"
+                className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--warning-text)]"
+              >
+                {finder.demoTag[lang]}
+              </span>
+            )}
+          </div>
           <p className="text-sm break-words">{lang === "bn" ? r.resource.nameBn : r.resource.nameEn}</p>
           <p className="text-xs text-[var(--text-muted)]">
             {t.createdAt[lang]}: {dateFmt[lang].format(r.createdAt)}

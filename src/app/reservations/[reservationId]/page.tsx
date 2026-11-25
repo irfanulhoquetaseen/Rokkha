@@ -6,6 +6,7 @@ import { Call999Button } from "@/components/Call999Button";
 import { HospitalPhone } from "@/components/finder/HospitalPhone";
 import { Tracker, type TrackerReservation } from "@/components/reservations/Tracker";
 import { AppError } from "@/lib/errors";
+import { finder } from "@/lib/i18n/finder";
 import { reservations as t } from "@/lib/i18n/reservations";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getLang } from "@/server/i18n/lang";
@@ -51,7 +52,17 @@ async function TrackerBody({ params }: { params: Params }) {
     <>
       <div className="flex flex-col gap-1 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-5 shadow-xs">
         <p className="text-xs font-bold uppercase tracking-wider text-[var(--brand-primary-text)]">{t.trackerTitle[lang]}</p>
-        <h1 className="text-2xl font-extrabold break-words">{hospitalName}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-extrabold break-words">{hospitalName}</h1>
+          {view.hospital.isDemo && (
+            <span
+              data-testid="hospital-demo-tag"
+              className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2.5 py-0.5 text-xs font-semibold text-[var(--warning-text)]"
+            >
+              {finder.demoTag[lang]}
+            </span>
+          )}
+        </div>
         {condition && (
           <p className="text-sm text-[var(--text-muted)]">{lang === "bn" ? condition.nameBn : condition.nameEn}</p>
         )}

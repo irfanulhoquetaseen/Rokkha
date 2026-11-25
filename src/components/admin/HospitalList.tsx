@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import type { ErrorBody } from "@/lib/errors";
 import type { Lang } from "@/lib/i18n";
 import { admin } from "@/lib/i18n/admin";
+import { finder } from "@/lib/i18n/finder";
 
 export type HospitalRow = {
   id: string; slug: string; nameBn: string; nameEn: string; type: string;
@@ -204,9 +205,14 @@ export function HospitalList({
       )}
 
       {data.items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-zinc-500">{admin.noHospitals[lang]}</p>
+        <p className="py-8 text-center text-sm text-[var(--text-muted)]">{admin.noHospitals[lang]}</p>
       ) : (
-        <div className={`overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label={admin.hospitals[lang]}
+          className={`overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs transition-opacity ${loading ? "opacity-60" : ""}`}
+        >
           <table className="w-full text-left text-sm" data-testid="admin-hospitals-table">
             <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
               <tr>
@@ -222,8 +228,18 @@ export function HospitalList({
               {data.items.map((h) => (
                 <tr key={h.id} data-hospital-slug={h.slug} className={`border-b border-zinc-100 dark:border-zinc-800 ${h.archivedAt ? "opacity-60" : ""}`}>
                   <td className="px-3 py-2">
-                    <div className="font-medium">{lang === "bn" ? h.nameBn : h.nameEn}</div>
-                    <div className="text-xs text-zinc-500">{h.slug}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                      <span>{lang === "bn" ? h.nameBn : h.nameEn}</span>
+                      {h.isDemo && (
+                        <span
+                          data-testid="hospital-demo-tag"
+                          className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--warning-text)]"
+                        >
+                          {finder.demoTag[lang]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)]">{h.slug}</div>
                     {h.archivedAt && (
                       <span className="mt-0.5 inline-block rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-medium dark:bg-zinc-700">
                         {admin.archived[lang]}
@@ -579,7 +595,7 @@ function HospitalForm({
                 ) : (
                   <>
                     <div className="flex items-center gap-1">
-                      <label htmlFor={`res-total-${i}`} className="text-xs text-zinc-500">{admin.total[lang]}</label>
+                      <label htmlFor={`res-total-${i}`} className="text-xs text-[var(--text-muted)]">{admin.total[lang]}</label>
                       <input
                         id={`res-total-${i}`}
                         type="number"
@@ -599,7 +615,7 @@ function HospitalForm({
                       />
                     </div>
                     <div className="flex items-center gap-1">
-                      <label htmlFor={`res-avail-${i}`} className="text-xs text-zinc-500">{admin.available[lang]}</label>
+                      <label htmlFor={`res-avail-${i}`} className="text-xs text-[var(--text-muted)]">{admin.available[lang]}</label>
                       <input
                         id={`res-avail-${i}`}
                         type="number"

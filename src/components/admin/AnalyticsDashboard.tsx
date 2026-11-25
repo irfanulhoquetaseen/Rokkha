@@ -50,7 +50,7 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
         {initial.perDay.length === 0 ? (
           <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">{admin.noData[lang]}</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs">
+          <div tabIndex={0} role="region" aria-label={admin.reservationsPerDay[lang]} className="overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
                 <tr>
@@ -86,7 +86,7 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
         {initial.soldOut.length === 0 ? (
           <p className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-muted)]">{admin.noData[lang]}</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs">
+          <div tabIndex={0} role="region" aria-label={admin.soldOutEvents[lang]} className="overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
                 <tr>
@@ -130,7 +130,7 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
                 <div key={o.status} className="flex flex-col gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-xs">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-sm font-semibold">{label}</span>
-                    <span className="text-xs text-zinc-500 tabular-nums">{pct}%</span>
+                    <span className="text-xs text-[var(--text-muted)] tabular-nums">{pct}%</span>
                   </div>
                   <p className="text-2xl font-bold tabular-nums">{o.count}</p>
                   <SvgBar value={pct} max={100} color={OUTCOME_COLORS[o.status]} label={`${label}: ${o.count} (${pct}%)`} />
@@ -147,7 +147,7 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
         {initial.avgMinutes !== null ? (
           <p className="text-2xl font-bold tabular-nums">
             {initial.avgMinutes.toFixed(1)}{" "}
-            <span className="text-sm font-normal text-zinc-500">{admin.minutes[lang]}</span>
+            <span className="text-sm font-normal text-[var(--text-muted)]">{admin.minutes[lang]}</span>
           </p>
         ) : (
           <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">{admin.noData[lang]}</p>
@@ -160,7 +160,7 @@ export function AnalyticsDashboard({ lang, initial }: { lang: Lang; initial: Ana
         {initial.stale.length === 0 ? (
           <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">{admin.noData[lang]}</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div tabIndex={0} role="region" aria-label={admin.staleHospitals[lang]} className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-zinc-200 dark:border-zinc-700">
                 <tr>

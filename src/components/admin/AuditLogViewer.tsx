@@ -115,9 +115,14 @@ export function AuditLogViewer({
       </div>
 
       {data.items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-zinc-500">{admin.noAuditLogs[lang]}</p>
+        <p className="py-8 text-center text-sm text-[var(--text-muted)]">{admin.noAuditLogs[lang]}</p>
       ) : (
-        <div className={`overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label={admin.auditLog[lang]}
+          className={`overflow-x-auto rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xs transition-opacity ${loading ? "opacity-60" : ""}`}
+        >
           <table className="w-full text-left text-sm" data-testid="admin-audit-table">
             <thead className="border-b border-[var(--border-default)] bg-[var(--bg-subtle)]">
               <tr>
